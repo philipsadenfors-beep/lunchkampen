@@ -7,12 +7,11 @@
   <meta name="description" content="LUNCHKAMPEN – kollegornas lunchduell. Rösta fram dagens lunchfavorit varje vecka.">
   <title>LUNCHKAMPEN | Kollegornas lunchduell</title>
   <link rel="icon" type="image/webp" href="lunchkampen-logo.webp">
-  <link rel="stylesheet" href="style.css?v=20261030-16">
+  <link rel="stylesheet" href="style.css?v=20261030-15">
 </head>
 <body>
   <main class="shell">
     <header class="top"><img class="logo" src="lunchkampen-logo.webp" alt="LUNCHKAMPEN – pokal med kniv och gaffel" width="104" height="104"><div><div class="eyebrow">KOLLEGORNAS LUNCHDUELL</div><h1>LUNCH<span>KAMPEN</span></h1><p>En arbetsdag. En lunchvinnare. Din röst räknas.</p></div><span class="header-stamp" aria-hidden="true">🏆<small>LET’S<br> LUNCH!</small></span></header>
-    <section class="brand-identity" id="brandIdentity"><span id="brandSymbol" class="brand-symbol">E</span><div><span class="brand-kicker">FÖRETAGETS LUNCHKAMP</span><strong id="brandCompany">Elgiganten</strong><a id="brandWebsite" href="https://www.elgiganten.se/" target="_blank" rel="noopener noreferrer">elgiganten.se</a></div></section>
     <section class="login-panel"><span id="accountLabel">Logga in med Google för att rösta</span><button id="googleLogin" type="button">Logga in med Google</button><button id="googleLogout" type="button" hidden>Logga ut</button></section>
     <div id="connection" class="notice" role="status">Ansluter till den gemensamma röstningen …</div>
     <div class="intro"><span class="intro-star">✦</span> Rösta på din favorit. Följ kampen live. Låt bästa lunchstället vinna! <span class="intro-star">✦</span></div>
@@ -33,10 +32,9 @@
       <form id="suggestForm" class="suggest-form"><div><label for="restaurantName">Nytt lunchställe</label><input id="restaurantName" maxlength="60" minlength="2" placeholder="T.ex. Café Central" required></div><button type="submit" class="secondary" id="addButton">Lägg till ställe</button></form><div id="suggestFeedback" class="feedback" role="status" aria-live="polite"></div>
       <details><summary>Hantera egna förslag</summary><div id="ownSuggestions" class="own-list"></div><p class="small">Du kan ta bort egna tillagda restauranger från denna webbläsare. Standardställen och andras förslag hanteras via Firebase-konsolen.</p></details>
     </section>
-    <section id="brandSettings" class="panel brand-settings" hidden><h2>🎨 Företagets utseende</h2><p class="muted">Endast administratören kan ändra temat i den här webbläsaren. Elgiganten-temat är förvalt. För andra företag kan du ange namn, webbplats, färger och en direktlänk till logotypen.</p><form id="brandForm" class="brand-form"><label for="brandNameInput">Företagsnamn</label><input id="brandNameInput" maxlength="60" value="Elgiganten" required><label for="brandUrlInput">Företagets webbplats</label><input id="brandUrlInput" type="url" placeholder="https://www.företag.se" value="https://www.elgiganten.se/" required><div class="brand-color-grid"><div><label for="brandMainColor">Huvudfärg</label><input id="brandMainColor" type="color" value="#092b65"></div><div><label for="brandAccentColor">Accentfärg</label><input id="brandAccentColor" type="color" value="#83d600"></div></div><label for="brandLogoInput">Logotypens bildadress (valfritt)</label><input id="brandLogoInput" type="url" placeholder="https://.../logo.png"><div class="brand-actions"><button class="primary" type="submit">Spara utseende</button><button id="elgigantenPreset" type="button" class="secondary">Använd Elgiganten-tema</button></div></form><p id="brandFeedback" class="feedback"></p></section>
     <footer>Ny röstningsvecka börjar automatiskt efter fredag. Tid och veckonummer följer svensk tid (Stockholm). <span>🏆 Må bästa lunch vinna!</span></footer>
   </main>
   <aside class="chat-sidebar" aria-label="Lunchsnacket"><section class="panel chat-panel" aria-labelledby="chatTitle"><div class="panel-heading"><div><h2 id="chatTitle">💬 Lunchsnacket</h2><p class="muted">Övertala kollegorna! Chatten gäller vald dag och aktuell vecka.</p></div></div><div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-label="Lunchchatten"></div><form id="chatForm" class="chat-form"><label for="chatInput">Skriv ett meddelande</label><div class="chat-controls"><input id="chatInput" maxlength="300" placeholder="PONG idag? 🍜" required><button id="chatSend" type="submit" class="secondary">Skicka</button></div></form><p id="chatFeedback" class="feedback" role="status"></p></section></aside>
-  <script type="module" src="app.js?v=20261030-16"></script>
+  <script type="module" src="app.js?v=20261030-15"></script>
 </body>
 </html>
