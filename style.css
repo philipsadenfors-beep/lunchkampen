@@ -3,7 +3,7 @@
 
 /* Vote controls and accessible hover details */
 .undo-button{display:block;width:100%;margin-top:12px;padding:12px 16px;border:1px solid #bbd2c3;border-radius:11px;color:#1b5238;background:#f3faf1;font-weight:800}
-.undo-button[hidden]{display:none}
+.undo-button[hidden]{display:block}
 .undo-button:hover:not(:disabled){background:#e7f5dc}
 .result{position:relative;border-radius:10px;padding:5px 4px;margin-left:-4px;margin-right:-4px}
 .result:focus-visible{outline:3px solid #84c838;outline-offset:2px}
@@ -23,3 +23,5 @@
 .login-panel{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid #dfe6d9;border-radius:15px;padding:13px 18px;margin:14px 0;color:#194432;font-size:13px;font-weight:700}.login-panel button{padding:10px 16px;border:0;border-radius:9px;background:#b9ee54;color:#173c28;font-weight:800}.login-panel button[hidden]{display:none}.login-panel #googleLogout{background:#ebf2e8}
 
 .chat-panel{margin-top:20px}.chat-messages{max-height:310px;min-height:100px;overflow-y:auto;background:#f4f9f0;border:1px solid #dfeadc;border-radius:12px;padding:12px}.chat-message{padding:9px 12px;background:white;border:1px solid #e6ecdf;border-radius:10px;margin:7px 0;overflow-wrap:anywhere}.chat-message strong{font-size:12px;color:#21603d}.chat-message p{margin:4px 0 0;font-size:14px;white-space:pre-wrap}.chat-form label{margin-top:15px}.chat-controls{display:flex;gap:10px}.chat-controls input{min-width:0;flex:1}.chat-controls button{flex-shrink:0}@media(max-width:500px){.chat-controls{flex-direction:column}}
+
+#undoButton{display:block!important;width:100%;min-height:46px;visibility:visible!important}
