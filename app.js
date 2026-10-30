@@ -53,11 +53,12 @@ function voteDeadline(){
   return new Date(probe.getTime()-offset*60000);
 }
 function closingTime(){return activeDay===4?'11:30':'11:05'}
-function votingOpen(){return Date.now()<voteDeadline().getTime()}
+const TEST_MODE = true; // Pausar tidsgränsen medan vi testar.
+function votingOpen(){return TEST_MODE || Date.now()<voteDeadline().getTime()}
 function updateCountdown(){
   const deadline=voteDeadline().getTime(),seconds=Math.max(0,Math.ceil((deadline-Date.now())/1000));
   const pad=n=>String(n).padStart(2,'0');
-  const label=$('countdown');if(!label)return;
+  const label=$('countdown');if(!label){return;}
   const title=$('countdownHeading');
   if(seconds===0){label.textContent='Röstningen är stängd';title.textContent='Röstningen stängde kl. '+closingTime();}
   else{const hours=Math.floor(seconds/3600),mins=Math.floor(seconds%3600/60),secs=seconds%60;
