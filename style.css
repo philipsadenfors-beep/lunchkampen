@@ -70,3 +70,18 @@
 @keyframes sponsor-pulse{0%,100%{box-shadow:0 0 0 2px #eabf5133,0 12px 32px #8c43002b;transform:scale(1)}50%{box-shadow:0 0 0 9px #eabf511b,0 14px 36px #8c430044;transform:scale(1.015)}}
 @keyframes sponsor-shimmer{0%,60%,100%{transform:translateX(-110%)}80%{transform:translateX(110%)}}
 @media(prefers-reduced-motion:reduce){.sponsor-demo,.sponsor-demo::before{animation:none}}
+
+/* Vänster annonsyta: plats för Google AdSense, utan att ladda reklam innan kontot är kopplat */
+.adsense-sidebar{display:none}
+@media(min-width:1450px){
+  body{padding-left:185px}
+  .adsense-sidebar{display:block;position:fixed;left:16px;top:18px;bottom:18px;width:155px;z-index:10}
+}
+@media(min-width:1050px) and (max-width:1449px){
+  body{padding-left:150px}
+  .adsense-sidebar{display:block;position:fixed;left:12px;top:14px;bottom:14px;width:125px;z-index:10}
+}
+.adsense-placement{height:100%;display:flex;flex-direction:column;padding:10px;border:1px solid #d7dfd0;border-radius:15px;background:#fffef9;box-shadow:0 8px 22px #073b2d0c}
+.adsense-label{font-size:10px;letter-spacing:1.4px;color:#6d7a71;text-align:center;font-weight:800;padding:3px 0 11px}
+.adsense-slot{flex:1;min-height:0;border:1px dashed #c1cdbb;border-radius:11px;background:#f5f7f1;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center}
+.adsense-placeholder{display:flex;flex-direction:column;align-items:center;gap:9px;color:#42614c;font-size:12px;overflow-wrap:anywhere}.adsense-placeholder strong{font-size:15px;color:#264b33}.adsense-placeholder small{font-size:10px;line-height:1.5;color:#758579}.adsense-icon{font-size:30px;color:#82a18b}
