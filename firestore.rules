@@ -1,34 +1,43 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function validName(s) { return s is string && s.size() >= 2 && s.size() <= 60; }
+    function googleUser() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
     match /restaurants/{restaurantId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if googleUser();
+      allow create: if googleUser()
         && request.resource.data.keys().hasOnly(['name','createdBy','createdAt'])
-        && validName(request.resource.data.name)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 60
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+      allow delete: if googleUser() && resource.data.createdBy == request.auth.uid;
       allow update: if false;
     }
-    match /weeks/{weekId}/days/{dayId}/votes/{nameKey} {
-      allow read: if signedIn();
-      // Ingen kan skriva över en redan registrerad röst med samma namn.
-      allow create: if signedIn()
+    match /weeks/{weekId}/days/{dayId}/votes/{voterId} {
+      allow read: if googleUser();
+      allow create: if googleUser()
+        && voterId == request.auth.uid
         && weekId.matches('^[0-9]{4}-W[0-9]{2}$')
         && dayId in ['0','1','2','3','4']
-        && nameKey.size() >= 2 && nameKey.size() <= 120
-        && request.resource.data.keys().hasOnly(['nameKey','restaurantId','createdBy','createdAt'])
-        && request.resource.data.nameKey == nameKey
+        && request.resource.data.keys().hasOnly(['nameKey','voterName','restaurantId','createdBy','createdAt'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.voterName is string
+        && request.resource.data.voterName.size() >= 2
+        && request.resource.data.voterName.size() <= 35
+        && request.resource.data.nameKey is string
+        && request.resource.data.nameKey.size() >= 2
+        && request.resource.data.nameKey.size() <= 120
         && request.resource.data.restaurantId is string
         && request.resource.data.restaurantId.size() >= 1
         && request.resource.data.restaurantId.size() <= 120
-        && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time;
       allow update: if false;
-      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+      allow delete: if googleUser()
+        && voterId == request.auth.uid
+        && resource.data.createdBy == request.auth.uid;
     }
   }
 }
