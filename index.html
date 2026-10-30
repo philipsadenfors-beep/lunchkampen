@@ -7,7 +7,7 @@
   <meta name="description" content="LUNCHKAMPEN – kollegornas lunchduell. Rösta fram dagens lunchfavorit varje vecka.">
   <title>LUNCHKAMPEN | Kollegornas lunchduell</title>
   <link rel="icon" type="image/webp" href="lunchkampen-logo.webp">
-  <link rel="stylesheet" href="style.css?v=20261030-3">
+  <link rel="stylesheet" href="style.css?v=20261030-4">
 </head>
 <body>
   <main class="shell">
@@ -16,7 +16,7 @@
     <div class="intro"><span class="intro-star">✦</span> Rösta på din favorit. Följ kampen live. Låt bästa lunchstället vinna! <span class="intro-star">✦</span></div>
     <section class="weekline" aria-label="Aktuell vecka"><div><div class="eyebrow">AKTUELL VECKA</div><strong id="weekLabel">Vecka –</strong><p id="weekDates"></p></div><span class="week-pill">Mån–fre</span></section>
     <nav class="tabs" id="dayTabs" aria-label="Välj veckodag"></nav>
-    <section class="winner" aria-live="polite"><div class="winner-top"><span>🏆 DAGENS LEDARE</span><span id="winnerVotes">0 röster</span></div><h2 id="winnerName">Inga röster ännu</h2><p id="winnerNote">Bli först med att välja lunchställe.</p></section>
+    <section class="winner" aria-live="polite"><div class="winner-top"><span>🏆 DAGENS LEDARE</span><span id="winnerVotes">0 röster</span></div><h2 id="winnerName">Inga röster ännu</h2><p id="winnerNote">Bli först med att välja lunchställe.</p><div class="participants"><div class="participants-header"><h3 id="participantsTitle">Vilka ska med på lunch?</h3><span id="participantsCount">0 personer</span></div><div id="participantList" class="participant-list"><p class="participants-empty">Ingen har röstat den här dagen ännu.</p></div></div></section>
     <div class="two-col">
       <section class="panel" aria-labelledby="voteTitle"><h2 id="voteTitle">Din röst i kampen</h2><p class="muted">Skriv ditt namn och välj ett lunchställe.</p>
         <form id="voteForm"><label for="voterName">Ditt namn</label><input id="voterName" name="voterName" maxlength="35" minlength="2" placeholder="T.ex. Alex" autocomplete="name" required>
@@ -31,6 +31,6 @@
     </section>
     <footer>Ny röstningsvecka börjar automatiskt efter fredag. Tid och veckonummer följer svensk tid (Stockholm). <span>🏆 Må bästa lunch vinna!</span></footer>
   </main>
-  <script type="module" src="app.js?v=20261030-3"></script>
+  <script type="module" src="app.js?v=20261030-4"></script>
 </body>
 </html>
