@@ -90,7 +90,7 @@ function renderTabs(){
   for(let i=0;i<5;i++){
     const button=document.createElement('button');button.type='button';button.className='tab'+(i===activeDay?' active':'');
     button.setAttribute('aria-pressed',String(i===activeDay));
-    button.textContent=DAYS[i];button.addEventListener('click',()=>{activeDay=i;showFeedback('voteFeedback','');watchVotes();watchChat();watchReactions();renderTabs()});
+    button.textContent=DAYS[i];button.addEventListener('click',()=>{if(awMode)closeAw(false);activeDay=i;showFeedback('voteFeedback','');watchVotes();watchChat();watchReactions();renderTabs();$('dayTabs').scrollIntoView({behavior:'smooth',block:'start'})});
     $('dayTabs').append(button);
   }
 }
@@ -232,7 +232,7 @@ function refreshWeek(){
   $('weekLabel').textContent=`Vecka ${w.week} · ${w.year}`;
   const friday=new Date(w.monday);friday.setUTCDate(friday.getUTCDate()+4);
   $('weekDates').textContent=`${dateLabel(w.monday)} – ${dateLabel(friday)}`;
-  renderTabs();watchVotes();watchChat();watchReactions();refreshLeague();watchAwCounts();if(awMode)watchAwDay();watchAwCounts();if(awMode){$('awWeekLabel').textContent=$('weekLabel').textContent;watchAwDay();}showFeedback('voteFeedback','');updateCountdown();
+  renderTabs();watchVotes();watchChat();watchReactions();refreshLeague();watchAwCounts();if(awMode){$('awWeekLabel').textContent=$('weekLabel').textContent;watchAwDay();}showFeedback('voteFeedback','');updateCountdown();
 }
 $('weekSelect').addEventListener('change',event=>{
   selectedWeekOffset=Number(event.target.value)===1?1:0;
@@ -456,7 +456,7 @@ function watchAwDay(){
  const list=$('awChatMessages');list.replaceChildren();
  if(!user){list.textContent='Logga in med Google för att se AW-anmälningar och chatta.';return}
  awUnsubAttendees=onSnapshot(collection(db,'weeks',weekId,'days',String(awDay),'awAttendees'),snap=>{
-  awAttendees=snap.docs.map(d=>d.data());renderAwAttendees();
+  awAttendees=snap.docs.map(d=>d.data());awCounts[awDay]=snap.size;renderAwAttendees();renderAwTabs();
  },err=>showFeedback('awFeedback','Kunde inte läsa anmälningar: '+err.message,true));
  const messages=query(collection(db,'weeks',weekId,'days',String(awDay),'awChat'),orderBy('createdAt','desc'),limit(60));
  awUnsubChat=onSnapshot(messages,snap=>{
@@ -472,9 +472,9 @@ function openAw(day){
  $('awName').value=localStorage.getItem('lunch-name-'+(user?.uid||''))||$('voterName').value||user?.displayName||'';
  renderAwTabs();watchAwDay();$('awPage').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function closeAw(){
+function closeAw(scrollBack=true){
  awMode=false;document.body.classList.remove('aw-mode');$('awPage').hidden=true;
- awUnsubAttendees();awUnsubChat();renderAwTabs();$('awTabs').scrollIntoView({behavior:'smooth'});
+ awUnsubAttendees();awUnsubChat();renderAwTabs();if(scrollBack)$('awTabs').scrollIntoView({behavior:'smooth'});
 }
 $('awBack').addEventListener('click',closeAw);
 $('awJoin').addEventListener('click',async()=>{
