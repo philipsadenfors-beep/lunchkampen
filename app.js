@@ -5,11 +5,18 @@ import { firebaseConfig } from './firebase-config.js';
 
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
 const DEFAULT_PLACES = [
-  {id:'start-sushi-yama',name:'Sushi Yama'},
-  {id:'start-pizzeria-milano',name:'Pizzeria Milano'},
-  {id:'start-thai-house',name:'Thai House'},
-  {id:'start-burger-king',name:'Burger King'},
-  {id:'start-indian-garden',name:'Indian Garden'}
+  {id:'start-pong',name:'PONG'},
+  {id:'start-cok',name:'COK'},
+  {id:'start-sushi',name:'SUSHI'},
+  {id:'start-dedes',name:'DEDES'},
+  {id:'start-hemkop',name:'HEMKÖP'},
+  {id:'start-by-fiket',name:'BY-FIKET'},
+  {id:'start-phils',name:'PHILS'},
+  {id:'start-pong-maxi',name:'PONG MAXI'},
+  {id:'start-proviant',name:'PROVIANT'},
+  {id:'start-mormors',name:'MORMORS'},
+  {id:'start-ponte',name:'Ponte'},
+  {id:'start-piren',name:'Piren'}
 ];
 const $ = id => document.getElementById(id);
 let auth,db,user=null,weekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},ready=false;
