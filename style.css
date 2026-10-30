@@ -27,3 +27,5 @@
 #undoButton{display:block!important;width:100%;min-height:46px;visibility:visible!important}
 
 .admin-panel[hidden]{display:none!important}.admin-panel{margin-top:22px;border:2px solid #d0a452}.admin-vote{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #e3e9db}.admin-vote span{overflow-wrap:anywhere}.admin-delete{background:#fff0eb;color:#9f2828;border:1px solid #dcaaaa;border-radius:9px;padding:9px 13px;font-weight:700;cursor:pointer}.admin-delete:disabled{opacity:.55}
+
+.lunchbox-button{display:block;width:100%;min-height:47px;padding:12px;margin-top:9px;border-radius:12px;border:1px solid #b5c9a9;background:#e9f2df;color:#204b32;font:700 14px 'DM Sans',sans-serif;cursor:pointer}.lunchbox-button:hover:not(:disabled){background:#d9edc9}.lunchbox-button:disabled{opacity:.62;cursor:default}.lunchbox-people{width:100%;margin-top:10px;padding:9px 12px;border-radius:9px;background:#e9f2df;color:#214c31;font-size:13px;font-weight:700}
