@@ -53,3 +53,11 @@
 }
 
 .week-picker{display:flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:185px}.week-picker label{font-size:11px;font-weight:800;letter-spacing:.03em;color:#356747}.week-picker select{width:100%;padding:10px 12px;border:1px solid #acc9a5;border-radius:10px;background:#fff;color:#164b32;font:700 14px 'DM Sans',sans-serif;cursor:pointer}@media(max-width:580px){.week-picker{width:100%;align-items:flex-start}.week-picker select{max-width:100%}}
+
+/* Tydligt märkt lokal testannons, ej ett verkligt erbjudande */
+.chat-sidebar{gap:12px}
+.sponsor-demo{flex:0 0 auto;background:#fff8ee;border:1px solid #f1d9b0;border-radius:16px;padding:14px 15px;box-shadow:0 8px 24px #6c421014;color:#52321c}
+.sponsor-tag{font-size:10px;font-weight:900;letter-spacing:1.1px;color:#8d6549;margin-bottom:9px}
+.sponsor-inner{display:flex;gap:11px;align-items:center}.sponsor-emblem{width:52px;height:52px;flex:0 0 auto;border-radius:12px;background:#a72826;color:white;display:grid;place-items:center;font-size:26px}.sponsor-name{font:900 20px/1.15 'Outfit',sans-serif;letter-spacing:.08em;color:#8b2523}.sponsor-demo p{font-weight:800;font-size:14px;margin:5px 0 0;color:#3d3022}.sponsor-note{font-size:10px;color:#806f5c;margin-top:9px}
+@media(min-width:1050px){.chat-sidebar{flex-direction:column}.chat-sidebar .chat-panel{flex:1;min-height:0}.chat-sidebar .chat-messages{min-height:80px}}
+@media(max-width:1049px){.chat-sidebar{display:flex;flex-direction:column}.sponsor-demo{width:100%;max-width:1040px;margin:0 auto}}
