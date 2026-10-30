@@ -7,7 +7,7 @@
   <meta name="description" content="LUNCHKAMPEN – kollegornas lunchduell. Rösta fram dagens lunchfavorit varje vecka.">
   <title>LUNCHKAMPEN | Kollegornas lunchduell</title>
   <link rel="icon" type="image/webp" href="lunchkampen-logo.webp">
-  <link rel="stylesheet" href="style.css?v=20261030-6">
+  <link rel="stylesheet" href="style.css?v=20261030-7">
 </head>
 <body>
   <main class="shell">
@@ -15,7 +15,8 @@
     <section class="login-panel"><span id="accountLabel">Logga in med Google för att rösta</span><button id="googleLogin" type="button">Logga in med Google</button><button id="googleLogout" type="button" hidden>Logga ut</button></section>\n    <div id="connection" class="notice" role="status">Ansluter till den gemensamma röstningen …</div>
     <div class="intro"><span class="intro-star">✦</span> Rösta på din favorit. Följ kampen live. Låt bästa lunchstället vinna! <span class="intro-star">✦</span></div>
     <section class="weekline" aria-label="Aktuell vecka"><div><div class="eyebrow">AKTUELL VECKA</div><strong id="weekLabel">Vecka –</strong><p id="weekDates"></p></div><span class="week-pill">Mån–fre</span></section>
-    <nav class="tabs" id="dayTabs" aria-label="Välj veckodag"></nav>\n    <section class="countdown-panel" aria-live="off"><div><span class="countdown-eyebrow">⏱ LUNCHKAMPEN</span><h2 id="countdownHeading">Röstningen stänger kl. 11:05</h2><p>Varje vardag · svensk tid (Stockholm)</p></div><strong id="countdown" role="timer" aria-label="Tid kvar till röstningen stänger">--:--:--</strong></section>
+    <nav class="tabs" id="dayTabs" aria-label="Välj veckodag"></nav>
+    <section class="countdown-panel" aria-live="off"><div><span class="countdown-eyebrow">⏱ LUNCHKAMPEN</span><h2 id="countdownHeading">Röstningen stänger kl. 11:05</h2><p>Varje vardag · svensk tid (Stockholm)</p></div><strong id="countdown" role="timer" aria-label="Tid kvar till röstningen stänger">--:--:--</strong></section>
     <section class="winner" aria-live="polite"><div class="winner-top"><span>🏆 DAGENS LEDARE</span><span id="winnerVotes">0 röster</span></div><h2 id="winnerName">Inga röster ännu</h2><p id="winnerNote">Bli först med att välja lunchställe.</p><div class="participants"><div class="participants-header"><h3 id="participantsTitle">Vilka ska med på lunch?</h3><span id="participantsCount">0 personer</span></div><div id="participantList" class="participant-list"><p class="participants-empty">Ingen har röstat den här dagen ännu.</p></div></div></section>
     <div class="two-col">
       <section class="panel" aria-labelledby="voteTitle"><h2 id="voteTitle">Din röst i kampen</h2><p class="muted">Skriv ditt namn och välj ett lunchställe.</p>
@@ -25,12 +26,13 @@
       </section>
       <section class="panel" aria-labelledby="resultTitle"><div class="panel-heading"><h2 id="resultTitle">Ställningen just nu</h2><span id="totalVotes" class="total">0 röster</span></div><div id="resultList" class="results"></div><p class="small">Håll muspekaren över ett ställe (eller tryck på det i mobilen) för att se vilka som röstat. Resultaten uppdateras automatiskt.</p></section>
     </div>
+    <section class="panel chat-panel" aria-labelledby="chatTitle"><div class="panel-heading"><div><h2 id="chatTitle">💬 Lunchsnacket</h2><p class="muted">Övertala kollegorna! Chatten gäller vald dag och aktuell vecka.</p></div></div><div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-label="Lunchchatten"></div><form id="chatForm" class="chat-form"><label for="chatInput">Skriv ett meddelande</label><div class="chat-controls"><input id="chatInput" maxlength="300" placeholder="PONG idag? 🍜" required><button id="chatSend" type="submit" class="secondary">Skicka</button></div></form><p id="chatFeedback" class="feedback" role="status"></p></section>
     <section class="panel suggestions" aria-labelledby="suggestTitle"><div class="panel-heading"><div><h2 id="suggestTitle">Saknas ditt favoritställe?</h2><p class="muted">Föreslå ett nytt ställe. Det dyker upp i listan för alla och gäller kommande veckor också.</p></div><span class="suggest-icon">＋</span></div>
       <form id="suggestForm" class="suggest-form"><div><label for="restaurantName">Nytt lunchställe</label><input id="restaurantName" maxlength="60" minlength="2" placeholder="T.ex. Café Central" required></div><button type="submit" class="secondary" id="addButton">Lägg till ställe</button></form><div id="suggestFeedback" class="feedback" role="status" aria-live="polite"></div>
       <details><summary>Hantera egna förslag</summary><div id="ownSuggestions" class="own-list"></div><p class="small">Du kan ta bort egna tillagda restauranger från denna webbläsare. Standardställen och andras förslag hanteras via Firebase-konsolen.</p></details>
     </section>
     <footer>Ny röstningsvecka börjar automatiskt efter fredag. Tid och veckonummer följer svensk tid (Stockholm). <span>🏆 Må bästa lunch vinna!</span></footer>
   </main>
-  <script type="module" src="app.js?v=20261030-6"></script>
+  <script type="module" src="app.js?v=20261030-7"></script>
 </body>
 </html>
