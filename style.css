@@ -29,3 +29,25 @@
 .admin-panel[hidden]{display:none!important}.admin-panel{margin-top:22px;border:2px solid #d0a452}.admin-vote{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #e3e9db}.admin-vote span{overflow-wrap:anywhere}.admin-delete{background:#fff0eb;color:#9f2828;border:1px solid #dcaaaa;border-radius:9px;padding:9px 13px;font-weight:700;cursor:pointer}.admin-delete:disabled{opacity:.55}
 
 .lunchbox-button{display:block;width:100%;min-height:47px;padding:12px;margin-top:9px;border-radius:12px;border:1px solid #b5c9a9;background:#e9f2df;color:#204b32;font:700 14px 'DM Sans',sans-serif;cursor:pointer}.lunchbox-button:hover:not(:disabled){background:#d9edc9}.lunchbox-button:disabled{opacity:.62;cursor:default}.lunchbox-people{width:100%;margin-top:10px;padding:9px 12px;border-radius:9px;background:#e9f2df;color:#214c31;font-size:13px;font-weight:700}
+
+/* Fast, alltid synlig lunchchatt till höger på större skärmar */
+@media (min-width: 1450px) {
+  body {padding-right: 350px;}
+  .shell {max-width: 1040px;}
+  .chat-sidebar {position:fixed;top:18px;right:18px;bottom:18px;width:315px;z-index:20;display:flex;min-height:0;}
+  .chat-sidebar .chat-panel {display:flex;flex-direction:column;margin:0;width:100%;min-height:0;padding:20px 16px;box-shadow:0 10px 32px #073b2d18;}
+  .chat-sidebar .chat-messages {flex:1;min-height:120px;max-height:none;}
+  .chat-sidebar .chat-controls {flex-direction:column;}
+}
+@media (min-width: 1050px) and (max-width: 1449px) {
+  body {padding-right: 310px;}
+  .shell {max-width: 100%;}
+  .chat-sidebar {position:fixed;top:14px;right:12px;bottom:14px;width:285px;z-index:20;display:flex;min-height:0;}
+  .chat-sidebar .chat-panel {display:flex;flex-direction:column;margin:0;width:100%;min-height:0;padding:16px 13px;box-shadow:0 10px 28px #073b2d18;}
+  .chat-sidebar .chat-messages {flex:1;min-height:120px;max-height:none;}
+  .chat-sidebar .chat-controls {flex-direction:column;}
+}
+@media (max-width: 1049px) {
+  .chat-sidebar {position:relative;width:auto;margin:20px 24px 30px;}
+  .chat-sidebar .chat-panel {max-width:1040px;margin:0 auto;}
+}
