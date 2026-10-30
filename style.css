@@ -61,3 +61,12 @@
 .sponsor-inner{display:flex;gap:11px;align-items:center}.sponsor-emblem{width:52px;height:52px;flex:0 0 auto;border-radius:12px;background:#a72826;color:white;display:grid;place-items:center;font-size:26px}.sponsor-name{font:900 20px/1.15 'Outfit',sans-serif;letter-spacing:.08em;color:#8b2523}.sponsor-demo p{font-weight:800;font-size:14px;margin:5px 0 0;color:#3d3022}.sponsor-note{font-size:10px;color:#806f5c;margin-top:9px}
 @media(min-width:1050px){.chat-sidebar{flex-direction:column}.chat-sidebar .chat-panel{flex:1;min-height:0}.chat-sidebar .chat-messages{min-height:80px}}
 @media(max-width:1049px){.chat-sidebar{display:flex;flex-direction:column}.sponsor-demo{width:100%;max-width:1040px;margin:0 auto}}
+
+/* Mer framträdande, pulserande reklamruta med tillgänglig rörelse */
+.sponsor-demo{position:relative;overflow:hidden;padding:21px 19px;border:3px solid #d8a23c;border-radius:20px;background:linear-gradient(135deg,#fff0cf,#fffaf0 65%,#ffe5bd);box-shadow:0 0 0 4px #eabf5133,0 12px 32px #8c43002b;animation:sponsor-pulse 3s ease-in-out infinite}
+.sponsor-demo::before{content:' ';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,transparent 35%,#ffffff66 50%,transparent 65%);transform:translateX(-110%);animation:sponsor-shimmer 5s ease-in-out infinite}
+.sponsor-tag{display:inline-block;background:#85251f;color:#fff;padding:5px 9px;border-radius:999px;font-size:10px;letter-spacing:1px;margin-bottom:13px;position:relative}
+.sponsor-inner{gap:13px;position:relative}.sponsor-emblem{width:64px;height:64px;font-size:32px;border-radius:16px;box-shadow:0 6px 18px #a7282633}.sponsor-name{font-size:clamp(23px,2vw,29px)}.sponsor-demo p{font-size:clamp(16px,1.5vw,19px);line-height:1.3;color:#8b2523}
+@keyframes sponsor-pulse{0%,100%{box-shadow:0 0 0 2px #eabf5133,0 12px 32px #8c43002b;transform:scale(1)}50%{box-shadow:0 0 0 9px #eabf511b,0 14px 36px #8c430044;transform:scale(1.015)}}
+@keyframes sponsor-shimmer{0%,60%,100%{transform:translateX(-110%)}80%{transform:translateX(110%)}}
+@media(prefers-reduced-motion:reduce){.sponsor-demo,.sponsor-demo::before{animation:none}}
