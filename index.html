@@ -7,7 +7,7 @@
   <meta name="description" content="LUNCHKAMPEN – kollegornas lunchduell. Rösta fram dagens lunchfavorit varje vecka.">
   <title>LUNCHKAMPEN | Kollegornas lunchduell</title>
   <link rel="icon" type="image/webp" href="lunchkampen-logo.webp">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261030-3">
 </head>
 <body>
   <main class="shell">
@@ -20,10 +20,10 @@
     <div class="two-col">
       <section class="panel" aria-labelledby="voteTitle"><h2 id="voteTitle">Din röst i kampen</h2><p class="muted">Skriv ditt namn och välj ett lunchställe.</p>
         <form id="voteForm"><label for="voterName">Ditt namn</label><input id="voterName" name="voterName" maxlength="35" minlength="2" placeholder="T.ex. Alex" autocomplete="name" required>
-        <label for="restaurantSelect">Välj restaurang</label><select id="restaurantSelect" required></select><button id="voteButton" class="primary" type="submit">LÄGG MIN RÖST  →</button></form>
-        <p class="small">En röst per namn och dag. Namn visas i resultatet endast som antal, inte individuellt.</p><div id="voteFeedback" class="feedback" role="status" aria-live="polite"></div>
+        <label for="restaurantSelect">Välj restaurang</label><select id="restaurantSelect" required></select><button id="voteButton" class="primary" type="submit">LÄGG MIN RÖST  →</button><button id="undoButton" class="undo-button" type="button" hidden>↶ Ångra min röst</button></form>
+        <p class="small">En röst per namn och dag. Namn visas för kollegorna när de håller muspekaren över eller markerar ett lunchställe. Rösten kan ångras från samma webbläsare.</p><div id="voteFeedback" class="feedback" role="status" aria-live="polite"></div>
       </section>
-      <section class="panel" aria-labelledby="resultTitle"><div class="panel-heading"><h2 id="resultTitle">Ställningen just nu</h2><span id="totalVotes" class="total">0 röster</span></div><div id="resultList" class="results"></div><p class="small">Resultaten uppdateras automatiskt för alla.</p></section>
+      <section class="panel" aria-labelledby="resultTitle"><div class="panel-heading"><h2 id="resultTitle">Ställningen just nu</h2><span id="totalVotes" class="total">0 röster</span></div><div id="resultList" class="results"></div><p class="small">Håll muspekaren över ett ställe (eller tryck på det i mobilen) för att se vilka som röstat. Resultaten uppdateras automatiskt.</p></section>
     </div>
     <section class="panel suggestions" aria-labelledby="suggestTitle"><div class="panel-heading"><div><h2 id="suggestTitle">Saknas ditt favoritställe?</h2><p class="muted">Föreslå ett nytt ställe. Det dyker upp i listan för alla och gäller kommande veckor också.</p></div><span class="suggest-icon">＋</span></div>
       <form id="suggestForm" class="suggest-form"><div><label for="restaurantName">Nytt lunchställe</label><input id="restaurantName" maxlength="60" minlength="2" placeholder="T.ex. Café Central" required></div><button type="submit" class="secondary" id="addButton">Lägg till ställe</button></form><div id="suggestFeedback" class="feedback" role="status" aria-live="polite"></div>
@@ -31,6 +31,6 @@
     </section>
     <footer>Ny röstningsvecka börjar automatiskt efter fredag. Tid och veckonummer följer svensk tid (Stockholm). <span>🏆 Må bästa lunch vinna!</span></footer>
   </main>
-  <script type="module" src="app.js?v=20261030-2"></script>
+  <script type="module" src="app.js?v=20261030-3"></script>
 </body>
 </html>
