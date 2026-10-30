@@ -121,10 +121,11 @@ function renderResults(){
     const track=document.createElement('div');track.className='track';const fill=document.createElement('div');fill.className='fill';fill.style.width=(max?r.count/max*100:0)+'%';track.append(fill);row.append(head,track);if(voters.length){const names=document.createElement('div');names.className='voter-popover';names.textContent='Röstat: '+voters.join(', ');row.append(names)}list.append(row)
   }
   if(!sorted.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga restauranger tillagda.';list.append(p)}
-  const nameKey=makeNameKey($('voterName').value.trim());
   const hasVoted=!!user&&votes.some(v=>v.createdBy===user.uid);
   $('voteButton').disabled=!ready||hasVoted;
   $('voteButton').textContent=hasVoted?'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase():'LÄGG MIN RÖST →';
+  $('voterName').readOnly=hasVoted;
+  $('voterName').title=hasVoted?'Du har redan röstat med detta Google-konto. Ångra rösten först om du vill ändra.':'';
   const myVote=votes.find(v=>v.createdBy===user?.uid);
   $('undoButton').hidden=!myVote;
   $('undoButton').disabled=!ready||!myVote||!votingOpen();
@@ -183,7 +184,9 @@ $('voteForm').addEventListener('submit',async e=>{
   refreshWeek();const nameKey=makeNameKey(name);
   $('voteButton').disabled=true;
   try{
+    if(votes.some(v=>v.createdBy===user.uid))return showFeedback('voteFeedback','Du har redan röstat med ditt Google-konto den här dagen.',true);
     await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()),{nameKey,restaurantId,voterName:name,createdBy:user.uid,createdAt:serverTimestamp()});
+    localStorage.setItem('lunch-name-'+user.uid,name);
     localStorage.setItem('lunch-name',name);
     showFeedback('voteFeedback',`Tack ${name}! Din röst är sparad.`);
   }catch(err){showFeedback('voteFeedback',err.code==='permission-denied'?'Det namnet har redan röstat denna dag (eller så nekades rösten av säkerhetsreglerna).':'Kunde inte rösta: '+err.message,true)}
@@ -223,7 +226,7 @@ async function main(){
       unsubscribeVotes();unsubscribePlaces();unsubscribeChat();votes=[];suggestions=[];user=u;ready=!!u;
       $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
       $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
-      if(u){$('voterName').value=localStorage.getItem('lunch-name')||u.displayName||'';
+      if(u){$('voterName').value=localStorage.getItem('lunch-name-'+u.uid)||localStorage.getItem('lunch-name')||u.displayName||'';
         showStatus('● Inloggad med Google – röster delas med kollegorna','ok');
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
         watchVotes();watchChat();
