@@ -10,3 +10,12 @@
 .result:hover,.result:focus{background:#f2f9ed}
 .voter-popover{display:none;margin-top:9px;padding:10px 12px;border-radius:9px;background:#123e2e;color:white;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 .result:hover .voter-popover,.result:focus .voter-popover,.result:focus-within .voter-popover{display:block}
+
+/* Participants in the green daily leader card */
+.participants{position:relative;z-index:1;margin-top:24px;padding-top:17px;border-top:1px solid rgba(255,255,255,.25)}
+.participants-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+.participants h3{margin:0;color:#e3ffbf;font:800 16px/1.4 'Outfit',sans-serif}
+.participants-header>span{font-size:12px;color:#d3eccb;font-weight:700}
+.participant-list{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.participant-tag{border:1px solid #bdeba26b;background:#ffffff1c;color:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;overflow-wrap:anywhere}
+.participants-empty{font-size:13px;color:#d3e9d9;margin:2px 0}
