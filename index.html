@@ -7,7 +7,7 @@
   <meta name="description" content="LUNCHKAMPEN – kollegornas lunchduell. Rösta fram dagens lunchfavorit varje vecka.">
   <title>LUNCHKAMPEN | Kollegornas lunchduell</title>
   <link rel="icon" type="image/webp" href="lunchkampen-logo.webp">
-  <link rel="stylesheet" href="style.css?v=20261030-20">
+  <link rel="stylesheet" href="style.css?v=20261030-21">
 </head>
 <body>
   <aside class="adsense-sidebar" aria-label="Annonsyta till vänster"><div class="adsense-placement"><div class="adsense-label">ANNONS</div><div id="adsenseSlot" class="adsense-slot"><div class="adsense-placeholder"><span class="adsense-icon" aria-hidden="true">▤</span><strong>Annonsplats</strong><span>Google AdSense</span><small>Redo att kopplas till ditt AdSense-konto</small></div></div></div></aside>
@@ -28,6 +28,11 @@
       </section>
       <section class="panel" aria-labelledby="resultTitle"><div class="panel-heading"><h2 id="resultTitle">Ställningen just nu</h2><span id="totalVotes" class="total">0 röster</span></div><div id="resultList" class="results"></div><p class="small">Håll muspekaren över ett ställe (eller tryck på det i mobilen) för att se vilka som röstat. Resultaten uppdateras automatiskt.</p></section>
     </div>
+    <section class="fun-panel panel"><h2>🎰 Lunchroulette</h2><p class="muted">Låt slumpen välja lunchställe. Påverkar inte röstningen.</p><button id="rouletteSpin" type="button" class="primary">🎲 SNURRA LUNCHHJULET</button><div id="rouletteResult" class="fun-result" aria-live="polite">Vilket ställe blir det?</div></section>
+    <section class="fun-grid"><section class="panel"><h2>🏆 Lunchligan</h2><p class="muted">Mest aktiva lunchkämparna de senaste fyra veckorna.</p><div id="leagueList" class="fun-list">Laddar...</div></section><section class="panel"><h2>🔥 Lunchstreaks</h2><p class="muted">Dina sammanhängande röstningsdagar.</p><div id="streakStatus" class="fun-result">Logga in för att se din streak.</div></section></section>
+    <section class="panel"><h2>⚔️ Restaurangduellen</h2><p class="muted">Dagens två slumpade kombattanter. Rösta som vanligt för att påverka resultatet.</p><div id="duelResult" class="fun-result"></div><button id="duelShuffle" type="button" class="secondary">⚔️ Ny duell</button></section>
+    <section class="panel"><h2>😂 Lunchreaktioner</h2><p class="muted">Välj en restaurang och reagera. En reaktion per Google-konto och restaurang.</p><label for="reactionRestaurant">Restaurang</label><select id="reactionRestaurant"></select><div id="reactionButtons" class="reaction-buttons"><button type="button" data-emoji="🔥">🔥</button><button type="button" data-emoji="😍">😍</button><button type="button" data-emoji="🤮">🤮</button><button type="button" data-emoji="💸">💸</button></div><p id="reactionCounts" class="fun-result"></p><p id="reactionFeedback" class="feedback"></p></section>
+    <div id="winnerCelebration" class="celebration" hidden><div class="celebration-content"><span class="celebration-trophy">🏆🎉</span><h2>DAGENS LUNCHVINNARE!</h2><p id="celebrationWinner"></p><button id="celebrationClose" type="button">Stäng firandet</button></div></div>
     <section id="adminPanel" class="panel admin-panel" hidden><h2>🔒 Admin – Hantera röster</h2><p class="muted">Endast ditt Google-konto kan ta bort andra personers röster. Välj veckodag ovan.</p><strong id="adminDayLabel"></strong><div id="adminVoteList"></div><p id="adminFeedback" class="feedback" role="status"></p></section>
     <section class="panel suggestions" aria-labelledby="suggestTitle"><div class="panel-heading"><div><h2 id="suggestTitle">Saknas ditt favoritställe?</h2><p class="muted">Föreslå ett nytt ställe. Det dyker upp i listan för alla och gäller kommande veckor också.</p></div><span class="suggest-icon">＋</span></div>
       <form id="suggestForm" class="suggest-form"><div><label for="restaurantName">Nytt lunchställe</label><input id="restaurantName" maxlength="60" minlength="2" placeholder="T.ex. Café Central" required></div><button type="submit" class="secondary" id="addButton">Lägg till ställe</button></form><div id="suggestFeedback" class="feedback" role="status" aria-live="polite"></div>
@@ -36,6 +41,6 @@
     <footer>Ny röstningsvecka börjar automatiskt efter fredag. Tid och veckonummer följer svensk tid (Stockholm). <span>🏆 Må bästa lunch vinna!</span></footer>
   </main>
   <aside class="chat-sidebar" aria-label="Lunchsnacket"><section class="panel chat-panel" aria-labelledby="chatTitle"><div class="panel-heading"><div><h2 id="chatTitle">💬 Lunchsnacket</h2><p class="muted">Övertala kollegorna! Chatten gäller vald dag och aktuell vecka.</p></div></div><div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-label="Lunchchatten"></div><form id="chatForm" class="chat-form"><label for="chatInput">Skriv ett meddelande</label><div class="chat-controls"><input id="chatInput" maxlength="300" placeholder="PONG idag? 🍜" required><button id="chatSend" type="submit" class="secondary">Skicka</button></div></form><p id="chatFeedback" class="feedback" role="status"></p></section><section class="sponsor-demo" aria-label="Testannons för Il Ponte"><div class="sponsor-tag">ANNONS · DEMO</div><div class="sponsor-inner"><div class="sponsor-emblem" aria-hidden="true">🍕</div><div><div class="sponsor-name">IL PONTE</div><p>Just nu ingår valfri läsk!</p></div></div></section></aside>
-  <script type="module" src="app.js?v=20261030-15"></script>
+  <script type="module" src="app.js?v=20261030-21"></script>
 </body>
 </html>
