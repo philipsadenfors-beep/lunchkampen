@@ -3,6 +3,8 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
+const ADMIN_EMAIL = 'philip.sadenfors@gmail.com';
+function isAdmin(){return !!user && user.email?.toLowerCase()===ADMIN_EMAIL && user.emailVerified && user.providerData.some(p=>p.providerId==='google.com')}
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
 const DEFAULT_PLACES = [
   {id:'start-pong',name:'PONG'},
@@ -121,6 +123,7 @@ function renderResults(){
     const track=document.createElement('div');track.className='track';const fill=document.createElement('div');fill.className='fill';fill.style.width=(max?r.count/max*100:0)+'%';track.append(fill);row.append(head,track);if(voters.length){const names=document.createElement('div');names.className='voter-popover';names.textContent='Röstat: '+voters.join(', ');row.append(names)}list.append(row)
   }
   if(!sorted.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga restauranger tillagda.';list.append(p)}
+  renderAdminVotes();
   const hasVoted=!!user&&votes.some(v=>v.createdBy===user.uid);
   $('voteButton').disabled=!ready||hasVoted;
   $('voteButton').textContent=hasVoted?'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase():'LÄGG MIN RÖST →';
@@ -133,11 +136,35 @@ function renderResults(){
   $('undoButton').title=myVote?'Ta bort din röst så att du kan välja igen':'Du behöver först ha en röst registrerad med ditt Google-konto för vald dag';
   updateCountdown();
 }
+
+function renderAdminVotes(){
+  const panel=$('adminPanel'),list=$('adminVoteList');
+  panel.hidden=!isAdmin();
+  if(!isAdmin())return;
+  $('adminDayLabel').textContent=DAYS[activeDay]+' · '+$('weekLabel').textContent;
+  list.replaceChildren();
+  if(!votes.length){const p=document.createElement('p');p.className='small';p.textContent='Inga röster registrerade för vald dag.';list.append(p);return}
+  for(const vote of votes.slice().sort((x,y)=>(x.voterName||'').localeCompare(y.voterName||'','sv'))){
+    const entry=document.createElement('div');entry.className='admin-vote';
+    const info=document.createElement('span');
+    info.textContent=(vote.voterName||'Okänd')+' – '+(places().find(p=>p.id===vote.restaurantId)?.name||vote.restaurantId);
+    const remove=document.createElement('button');remove.type='button';remove.className='admin-delete';remove.textContent='Ta bort röst';
+    remove.addEventListener('click',async()=>{
+      if(!isAdmin()||!vote.id)return;
+      if(!confirm('Ta bort rösten från '+(vote.voterName||'Okänd')+' för '+DAYS[activeDay]+'?'))return;
+      remove.disabled=true;
+      try{await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',vote.id));showFeedback('adminFeedback','Rösten har tagits bort.')}
+      catch(err){showFeedback('adminFeedback','Kunde inte ta bort rösten: '+err.message,true);remove.disabled=false}
+    });
+    entry.append(info,remove);list.append(entry);
+  }
+}
+
 function myVoteDocId(){return user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
   const path=collection(db,'weeks',weekId,'days',String(activeDay),'votes');
-  unsubscribeVotes=onSnapshot(path,s=>{votes=s.docs.map(d=>d.data());renderResults()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
+  unsubscribeVotes=onSnapshot(path,s=>{votes=s.docs.map(d=>({id:d.id,...d.data()}));renderResults()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
 }
 function watchChat(){
   unsubscribeChat();const list=$('chatMessages');list.replaceChildren();
@@ -226,6 +253,7 @@ async function main(){
     $('googleLogout').addEventListener('click',async()=>{await signOut(auth)});
     onAuthStateChanged(auth,u=>{
       unsubscribeVotes();unsubscribePlaces();unsubscribeChat();votes=[];suggestions=[];user=u;ready=!!u;
+      $('adminPanel').hidden=!isAdmin();
       $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
       $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
       if(u){$('voterName').value=localStorage.getItem('lunch-name-'+u.uid)||localStorage.getItem('lunch-name')||u.displayName||'';
