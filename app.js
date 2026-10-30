@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
@@ -63,7 +63,7 @@ function updateCountdown(){
     label.textContent=hours>99?Math.floor(hours/24)+' dagar kvar':pad(hours)+':'+pad(mins)+':'+pad(secs);
     title.textContent='Röstningen stänger kl. 11:05';}
   label.classList.toggle('closed',seconds===0);
-  $('voteButton').disabled=!ready||!votingOpen()||votes.some(v=>v.nameKey===makeNameKey($('voterName').value.trim()));
+  $('voteButton').disabled=!ready||!votingOpen()||votes.some(v=>v.createdBy===user?.uid);
   if(!votingOpen())$('voteButton').textContent='RÖSTNINGEN ÄR STÄNGD';
   const undo=$('undoButton');if(undo&&!undo.hidden)undo.disabled=!ready||!votingOpen();
 }
@@ -120,14 +120,15 @@ function renderResults(){
   }
   if(!sorted.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga restauranger tillagda.';list.append(p)}
   const nameKey=makeNameKey($('voterName').value.trim());
-  const hasVoted=!!nameKey&&votes.some(v=>v.nameKey===nameKey);
+  const hasVoted=!!user&&votes.some(v=>v.createdBy===user.uid);
   $('voteButton').disabled=!ready||hasVoted;
   $('voteButton').textContent=hasVoted?'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase():'LÄGG MIN RÖST →';
-  const myVote=votes.find(v=>v.nameKey===nameKey&&v.createdBy===user?.uid);
+  const myVote=votes.find(v=>v.createdBy===user?.uid);
   $('undoButton').hidden=!myVote;
   $('undoButton').disabled=!ready||!myVote||!votingOpen();
   updateCountdown();
 }
+function myVoteDocId(){return user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
   const path=collection(db,'weeks',weekId,'days',String(activeDay),'votes');
@@ -141,7 +142,7 @@ function refreshWeek(){const w=workingWeek();if(w.id===weekId)return;
 }
 $('voterName').addEventListener('input',renderResults);
 $('voteForm').addEventListener('submit',async e=>{
-  e.preventDefault();if(!ready)return;
+  e.preventDefault();if(!ready||!user)return;
   if(!votingOpen())return showFeedback('voteFeedback','Röstningen för denna dag stängde kl. 11:05.',true);
   const name=$('voterName').value.trim().replace(/\s+/g,' '),restaurantId=$('restaurantSelect').value;
   if(name.length<2||name.length>35)return showFeedback('voteFeedback','Ange ett namn med 2–35 tecken.',true);
@@ -149,7 +150,7 @@ $('voteForm').addEventListener('submit',async e=>{
   refreshWeek();const nameKey=makeNameKey(name);
   $('voteButton').disabled=true;
   try{
-    await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',nameKey),{nameKey,restaurantId,createdBy:user.uid,createdAt:serverTimestamp()});
+    await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()),{nameKey,restaurantId,voterName:name,createdBy:user.uid,createdAt:serverTimestamp()});
     localStorage.setItem('lunch-name',name);
     showFeedback('voteFeedback',`Tack ${name}! Din röst är sparad.`);
   }catch(err){showFeedback('voteFeedback',err.code==='permission-denied'?'Det namnet har redan röstat denna dag (eller så nekades rösten av säkerhetsreglerna).':'Kunde inte rösta: '+err.message,true)}
@@ -157,12 +158,12 @@ $('voteForm').addEventListener('submit',async e=>{
 });
 $('undoButton').addEventListener('click',async()=>{
   const nameKey=makeNameKey($('voterName').value.trim());
-  const myVote=votes.find(v=>v.nameKey===nameKey&&v.createdBy===user?.uid);
+  const myVote=votes.find(v=>v.createdBy===user?.uid);
   if(!myVote)return showFeedback('voteFeedback','Det finns ingen röst att ångra från denna webbläsare.',true);
   if(!votingOpen())return showFeedback('voteFeedback','Röstningen är stängd. Rösten kan inte ändras efter kl. 11:05.',true);
   $('undoButton').disabled=true;
   try{
-    await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',nameKey));
+    await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()));
     showFeedback('voteFeedback','Din röst är ångrad. Du kan rösta igen.');
   }catch(err){showFeedback('voteFeedback','Kunde inte ångra rösten. Firebase-reglerna måste uppdateras: '+err.message,true)}
   renderResults();
@@ -180,11 +181,21 @@ async function main(){
   if(firebaseConfig.apiKey.startsWith('ERSATT_')){showStatus('För att koppla ihop alla kollegor: fyll i Firebase-inställningarna i firebase-config.js. Se STARTA-HAR.md.','error');$('voteButton').disabled=true;$('addButton').disabled=true;refreshWeek();renderPlaces();return}
   try{
     const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);
-    onAuthStateChanged(auth,async u=>{
-      if(!u){try{await signInAnonymously(auth)}catch(err){showStatus('Anonym inloggning misslyckades. Aktivera Anonymous i Firebase Authentication. '+err.message,'error')}return}
-      user=u;ready=true;showStatus('● Ansluten – röster delas direkt med alla kollegor','ok');
-      unsubscribePlaces();unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
-      refreshWeek();watchVotes();renderPlaces();renderResults();
+    $('googleLogin').addEventListener('click',async()=>{
+      try{await signInWithPopup(auth,new GoogleAuthProvider())}
+      catch(err){showStatus('Google-inloggning misslyckades: '+err.message,'error')}
+    });
+    $('googleLogout').addEventListener('click',async()=>{await signOut(auth)});
+    onAuthStateChanged(auth,u=>{
+      unsubscribeVotes();unsubscribePlaces();votes=[];suggestions=[];user=u;ready=!!u;
+      $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
+      $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
+      if(u){$('voterName').value=localStorage.getItem('lunch-name')||u.displayName||'';
+        showStatus('● Inloggad med Google – röster delas med kollegorna','ok');
+        unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
+        watchVotes();
+      } else showStatus('Logga in med Google för att se resultat och rösta.');
+      renderPlaces();renderResults();
     });
     setInterval(refreshWeek,60000);
     setInterval(updateCountdown,1000);
