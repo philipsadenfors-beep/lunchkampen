@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
-import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
+import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs, getDocsFromServer } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const ADMIN_EMAIL = 'philip.sadenfors@gmail.com';
@@ -303,7 +303,7 @@ async function main(){
     });
     $('googleLogout').addEventListener('click',async()=>{await signOut(auth)});
     onAuthStateChanged(auth,u=>{
-      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
+      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awCountGeneration++;awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
       $('adminPanel').hidden=!isAdmin();
       $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
       $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
@@ -316,8 +316,9 @@ async function main(){
     });
     setInterval(refreshWeek,60000);
     setInterval(refreshLeague,300000);
+    setInterval(fetchAwCounts,20000);
     setInterval(updateCountdown,1000);
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshWeek()});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshWeek();fetchAwCounts()}});
   }catch(err){showStatus('Fel vid anslutning: '+err.message,'error')}
 }
 
@@ -417,7 +418,7 @@ function maybeCelebrate(){
 $('celebrationClose').addEventListener('click',()=>{$('winnerCelebration').hidden=true});
 
 
-let awDay=4,awMode=false,awAttendees=[],awCounts=[0,0,0,0,0],awCountUnsubs=[],awUnsubAttendees=()=>{},awUnsubChat=()=>{};
+let awDay=4,awMode=false,awAttendees=[],awCounts=[0,0,0,0,0],awCountUnsubs=[],awUnsubAttendees=()=>{},awUnsubChat=()=>{},awCountWeek='',awCountGeneration=0;
 function awAttendeeRef(){return doc(db,'weeks',weekId,'days',String(awDay),'awAttendees',user.uid)}
 function renderAwTabs(){
  const nav=$('awTabs');nav.replaceChildren();
@@ -441,15 +442,30 @@ function renderAwAttendees(){
  $('awName').readOnly=!!own;
  if(own)$('awName').value=own.name;
 }
+async function fetchAwCounts(){
+ if(!user||!weekId)return;
+ const currentWeek=weekId,version=awCountGeneration;
+ try{
+  const results=await Promise.all(DAYS.map((_,day)=>getDocsFromServer(collection(db,'weeks',currentWeek,'days',String(day),'awAttendees'))));
+  if(version!==awCountGeneration||currentWeek!==weekId||!user)return;
+  awCounts=results.map(result=>result.size);
+  renderAwTabs();
+ }catch(err){console.warn('AW counters could not refresh from server',err)}
+}
 function watchAwCounts(){
- awCountUnsubs.forEach(unsub=>unsub());awCountUnsubs=[];awCounts=[0,0,0,0,0];renderAwTabs();
- if(!user)return;
- for(let d=0;d<5;d++){
-  const unsubscribe=onSnapshot(collection(db,'weeks',weekId,'days',String(d),'awAttendees'),snap=>{
-   awCounts[d]=snap.size;renderAwTabs();
-  },err=>showStatus('AW-anmälningar kräver nya Firebase-regler: '+err.message,'error'));
+ awCountUnsubs.forEach(unsub=>unsub());awCountUnsubs=[];
+ awCountWeek=weekId;const currentWeek=weekId,version=++awCountGeneration;
+ if(!user){awCounts=[0,0,0,0,0];renderAwTabs();return}
+ // Live listeners start immediately, before anyone opens an AW-day.
+ for(let day=0;day<5;day++){
+  const unsubscribe=onSnapshot(collection(db,'weeks',currentWeek,'days',String(day),'awAttendees'),snap=>{
+   if(version!==awCountGeneration||currentWeek!==weekId)return;
+   awCounts[day]=snap.size;renderAwTabs();
+  },err=>showStatus('Kunde inte uppdatera AW-antal: '+err.message,'error'));
   awCountUnsubs.push(unsubscribe);
  }
+ // Fetch server data on page load as well as through realtime listeners.
+ fetchAwCounts();
 }
 function watchAwDay(){
  awUnsubAttendees();awUnsubChat();awAttendees=[];renderAwAttendees();
