@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
-import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
+import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const ADMIN_EMAIL = 'philip.sadenfors@gmail.com';
@@ -22,7 +22,7 @@ const DEFAULT_PLACES = [
   {id:'start-piren',name:'Piren'}
 ];
 const $ = id => document.getElementById(id);
-let auth,db,user=null,weekId='',selectedWeekOffset=0,baseWeekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},ready=false;
+let auth,db,user=null,weekId='',selectedWeekOffset=0,baseWeekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},unsubscribeReactions=()=>{},reactions=[],ready=false;
 const savedName = localStorage.getItem('lunch-name') || '';
 $('voterName').value=savedName;
 
@@ -90,7 +90,7 @@ function renderTabs(){
   for(let i=0;i<5;i++){
     const button=document.createElement('button');button.type='button';button.className='tab'+(i===activeDay?' active':'');
     button.setAttribute('aria-pressed',String(i===activeDay));
-    button.textContent=DAYS[i];button.addEventListener('click',()=>{activeDay=i;showFeedback('voteFeedback','');watchVotes();watchChat();renderTabs()});
+    button.textContent=DAYS[i];button.addEventListener('click',()=>{activeDay=i;showFeedback('voteFeedback','');watchVotes();watchChat();watchReactions();renderTabs()});
     $('dayTabs').append(button);
   }
 }
@@ -102,7 +102,7 @@ function renderPlaces(){
   const mine=suggestions.filter(r=>r.createdBy===user?.uid);
   if(!mine.length){const p=document.createElement('p');p.className='small';p.textContent='Inga egna förslag ännu.';own.append(p)}
   for(const r of mine){const item=document.createElement('div');item.className='own-entry';const name=document.createElement('span');name.textContent=r.name;const btn=document.createElement('button');btn.className='delete';btn.textContent='Ta bort';btn.type='button';btn.addEventListener('click',async()=>{if(!confirm(`Ta bort ${r.name} ur listan? Historiska röster finns kvar.`))return;try{await deleteDoc(doc(db,'restaurants',r.id));showFeedback('suggestFeedback',`${r.name} borttagen.`)}catch(e){showFeedback('suggestFeedback','Kunde inte ta bort: '+e.message,true)}});item.append(name,btn);own.append(item)}
-  renderResults();
+  renderResults();fillFunSelectors();
 }
 function renderResults(){
   const ballot=places(),counts=new Map(ballot.map(r=>[r.id,0]));
@@ -135,6 +135,7 @@ function renderResults(){
   }
   if(!sorted.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga restauranger tillagda.';list.append(p)}
   renderAdminVotes();
+  renderDuel();
   const hasVoted=!!user&&votes.some(v=>v.createdBy===user.uid);
   $('voteButton').disabled=!ready||hasVoted;
   const myChoice=votes.find(v=>v.createdBy===user?.uid);
@@ -178,7 +179,7 @@ function myVoteDocId(){return user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
   const path=collection(db,'weeks',weekId,'days',String(activeDay),'votes');
-  unsubscribeVotes=onSnapshot(path,s=>{votes=s.docs.map(d=>({id:d.id,...d.data()}));renderResults()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
+  unsubscribeVotes=onSnapshot(path,s=>{votes=s.docs.map(d=>({id:d.id,...d.data()}));renderResults();maybeCelebrate()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
 }
 function watchChat(){
   unsubscribeChat();const list=$('chatMessages');list.replaceChildren();
@@ -226,7 +227,7 @@ function refreshWeek(){
   $('weekLabel').textContent=`Vecka ${w.week} · ${w.year}`;
   const friday=new Date(w.monday);friday.setUTCDate(friday.getUTCDate()+4);
   $('weekDates').textContent=`${dateLabel(w.monday)} – ${dateLabel(friday)}`;
-  renderTabs();watchVotes();watchChat();showFeedback('voteFeedback','');updateCountdown();
+  renderTabs();watchVotes();watchChat();watchReactions();randomPair();refreshLeague();showFeedback('voteFeedback','');updateCountdown();
 }
 $('weekSelect').addEventListener('change',event=>{
   selectedWeekOffset=Number(event.target.value)===1?1:0;
@@ -297,20 +298,127 @@ async function main(){
     });
     $('googleLogout').addEventListener('click',async()=>{await signOut(auth)});
     onAuthStateChanged(auth,u=>{
-      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();votes=[];suggestions=[];user=u;ready=!!u;
+      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();votes=[];suggestions=[];user=u;ready=!!u;
       $('adminPanel').hidden=!isAdmin();
       $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
       $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
       if(u){$('voterName').value=localStorage.getItem('lunch-name-'+u.uid)||localStorage.getItem('lunch-name')||u.displayName||'';
         showStatus('● Inloggad med Google – röster delas med kollegorna','ok');
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
-        watchVotes();watchChat();
+        watchVotes();watchChat();watchReactions();refreshLeague();
       } else showStatus('Logga in med Google för att se resultat och rösta.');
       renderPlaces();renderResults();
     });
     setInterval(refreshWeek,60000);
+    setInterval(refreshLeague,300000);
     setInterval(updateCountdown,1000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshWeek()});
   }catch(err){showStatus('Fel vid anslutning: '+err.message,'error')}
 }
+
+let leagueLoading=false,duelPair=[],rouletteTimer=null,lastCelebrationKey='';
+const reactionEmojis=['🔥','😍','🤮','💸'];
+function randomPair(){
+ const items=places().filter(x=>x.id!==LUNCHBOX_ID);
+ if(items.length<2)return;
+ const first=items[Math.floor(Math.random()*items.length)];
+ const rest=items.filter(x=>x.id!==first.id);
+ duelPair=[first,rest[Math.floor(Math.random()*rest.length)]];
+ renderDuel();
+}
+function renderDuel(){
+ if(!duelPair.length)return;
+ const counts=duelPair.map(x=>votes.filter(v=>v.restaurantId===x.id).length);
+ $('duelResult').textContent=duelPair[0].name+' ('+counts[0]+') ⚔️ '+duelPair[1].name+' ('+counts[1]+')';
+}
+$('duelShuffle').addEventListener('click',randomPair);
+$('rouletteSpin').addEventListener('click',()=>{
+ const all=places();if(!all.length)return;
+ if(rouletteTimer)clearInterval(rouletteTimer);
+ let ticks=0;$('rouletteSpin').disabled=true;
+ rouletteTimer=setInterval(()=>{
+   const item=all[Math.floor(Math.random()*all.length)];
+   $('rouletteResult').textContent='🎰 '+item.name;
+   if(++ticks>=19){clearInterval(rouletteTimer);rouletteTimer=null;$('rouletteSpin').disabled=false;$('rouletteResult').textContent='🎉 Lunchroulette valde '+item.name+'!'}
+ },90);
+});
+function fillFunSelectors(){
+ const select=$('reactionRestaurant'),old=select.value;select.replaceChildren();
+ for(const place of places()){const opt=document.createElement('option');opt.value=place.id;opt.textContent=place.name;select.append(opt)}
+ if(places().some(p=>p.id===old))select.value=old;
+ renderReactionCounts();
+}
+function renderReactionCounts(){
+ const id=$('reactionRestaurant').value;
+ $('reactionCounts').textContent=reactionEmojis.map(emoji=>emoji+' '+reactions.filter(r=>r.restaurantId===id&&r.emoji===emoji).length).join('   ');
+ for(const btn of $('reactionButtons').querySelectorAll('button')){btn.disabled=!ready;btn.classList.toggle('selected',reactions.some(r=>r.restaurantId===id&&r.emoji===btn.dataset.emoji&&r.createdBy===user?.uid))}
+}
+function watchReactions(){
+ unsubscribeReactions();reactions=[];renderReactionCounts();if(!user)return;
+ unsubscribeReactions=onSnapshot(collection(db,'weeks',weekId,'days',String(activeDay),'reactions'),snapshot=>{
+ reactions=snapshot.docs.map(d=>d.data());renderReactionCounts();
+ },err=>showFeedback('reactionFeedback','Reaktionerna kräver uppdaterade Firebase-regler: '+err.message,true));
+}
+$('reactionRestaurant').addEventListener('change',renderReactionCounts);
+$('reactionButtons').addEventListener('click',async event=>{
+ const button=event.target.closest('button[data-emoji]');if(!button||!user)return;
+ const restaurantId=$('reactionRestaurant').value,emoji=button.dataset.emoji;
+ const mine=reactions.find(r=>r.createdBy===user.uid&&r.restaurantId===restaurantId);
+ const ref=doc(db,'weeks',weekId,'days',String(activeDay),'reactions',user.uid+'_'+restaurantId);
+ button.disabled=true;
+ try{
+  if(mine?.emoji===emoji)await deleteDoc(ref);
+  else await setDoc(ref,{createdBy:user.uid,restaurantId,emoji});
+  showFeedback('reactionFeedback','');
+ }catch(err){showFeedback('reactionFeedback','Kunde inte spara reaktion: '+err.message,true)}
+ finally{renderReactionCounts()}
+});
+async function refreshLeague(){
+ if(leagueLoading||!user)return;
+ leagueLoading=true;
+ const current=selectedWeek(),days=[];
+ for(let w=0;w<4;w++){
+  const monday=new Date(current.monday);monday.setUTCDate(monday.getUTCDate()-7*w);
+  const iw=isoWeek(monday),id=iw.year+'-W'+String(iw.week).padStart(2,'0');
+  for(let day=0;day<5;day++)days.push({id,day,date:new Date(monday.getTime()+day*86400000).getTime()});
+ }
+ try{
+  const snapshots=await Promise.all(days.map(x=>getDocs(collection(db,'weeks',x.id,'days',String(x.day),'votes'))));
+  if(!user)return;
+  const scores=new Map(),myDates=new Set();
+  snapshots.forEach((snap,i)=>snap.forEach(d=>{
+   const v=d.data();if(v.restaurantId===LUNCHBOX_ID)return;
+   const key=v.createdBy||v.nameKey;if(!key)return;
+   const display=v.voterName||decodeURIComponent(v.nameKey||'Okänd');
+   const current=scores.get(key)||{name:display,score:0};
+   current.score++;current.name=display;scores.set(key,current);
+   if(v.createdBy===user.uid)myDates.add(days[i].date);
+  }));
+  const ranked=[...scores.values()].sort((x,y)=>y.score-x.score||x.name.localeCompare(y.name,'sv')).slice(0,10);
+  const list=$('leagueList');list.replaceChildren();
+  if(!ranked.length)list.textContent='Inga röster ännu.';
+  for(let i=0;i<ranked.length;i++){const line=document.createElement('div');line.className='league-entry';line.textContent=(i+1)+'. '+ranked[i].name+' — '+ranked[i].score+' poäng';list.append(line)}
+  const dates=days.map(x=>x.date).sort((x,y)=>y-x);
+  let streak=0,started=false;
+  for(const date of dates){if(myDates.has(date)){streak++;started=true}else if(started)break}
+  $('streakStatus').textContent=(streak>=10?'👑':streak>=5?'🥇':streak>=3?'🔥':'🍽️')+' '+streak+' dagar i följd (senaste fyra veckorna)';
+ }catch(err){$('leagueList').textContent='Kunde inte läsa lunchligan: '+err.message}
+ finally{leagueLoading=false}
+}
+function maybeCelebrate(){
+ const today=stockholmDate(),iso=selectedWeek();
+ const selectedDate=new Date(iso.monday);selectedDate.setUTCDate(selectedDate.getUTCDate()+activeDay);
+ const counts=new Map();
+ votes.filter(v=>v.restaurantId!==LUNCHBOX_ID).forEach(v=>counts.set(v.restaurantId,(counts.get(v.restaurantId)||0)+1));
+ const max=Math.max(0,...counts.values());if(!max)return;
+ const key=weekId+'-'+activeDay+'-'+max;
+ // Firandet visas när man själv väljer en avslutad dag, aldrig automatiskt vid varje omröstning.
+ if(selectedDate>=today||key===lastCelebrationKey)return;
+ lastCelebrationKey=key;
+ const leaders=places().filter(p=>counts.get(p.id)===max).map(p=>p.name);
+ $('celebrationWinner').textContent=leaders.join(' / ')+' – '+max+' röster';
+ $('winnerCelebration').hidden=false;
+}
+$('celebrationClose').addEventListener('click',()=>{$('winnerCelebration').hidden=true});
+
 refreshWeek();renderPlaces();updateCountdown();main();
