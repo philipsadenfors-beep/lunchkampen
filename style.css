@@ -51,3 +51,5 @@
   .chat-sidebar {position:relative;width:auto;margin:20px 24px 30px;}
   .chat-sidebar .chat-panel {max-width:1040px;margin:0 auto;}
 }
+
+.week-picker{display:flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:185px}.week-picker label{font-size:11px;font-weight:800;letter-spacing:.03em;color:#356747}.week-picker select{width:100%;padding:10px 12px;border:1px solid #acc9a5;border-radius:10px;background:#fff;color:#164b32;font:700 14px 'DM Sans',sans-serif;cursor:pointer}@media(max-width:580px){.week-picker{width:100%;align-items:flex-start}.week-picker select{max-width:100%}}
