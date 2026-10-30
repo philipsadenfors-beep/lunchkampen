@@ -80,16 +80,21 @@ function renderResults(){
   const list=$('resultList');list.replaceChildren();
   for(let i=0;i<sorted.length;i++){
     const r=sorted[i],row=document.createElement('div');row.className='result';
+    const voters=votes.filter(v=>v.restaurantId===r.id).map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).sort((a,b)=>a.localeCompare(b,'sv'));
+    row.title=voters.length?'Röstat: '+voters.join(', '):'Inga röster ännu';row.tabIndex=0;row.setAttribute('aria-label',`${r.name}, ${plural(r.count)}. ${voters.length?'Röstat: '+voters.join(', '):'Inga röster ännu'}`);
     const head=document.createElement('div');head.className='result-head';
     const name=document.createElement('span');name.className='result-name';name.textContent=`${i+1}. ${r.name}${r.count===max&&max>0?' 🏆':''}`;
     const count=document.createElement('span');count.className='result-count';count.textContent=plural(r.count);head.append(name,count);
-    const track=document.createElement('div');track.className='track';const fill=document.createElement('div');fill.className='fill';fill.style.width=(max?r.count/max*100:0)+'%';track.append(fill);row.append(head,track);list.append(row)
+    const track=document.createElement('div');track.className='track';const fill=document.createElement('div');fill.className='fill';fill.style.width=(max?r.count/max*100:0)+'%';track.append(fill);row.append(head,track);if(voters.length){const names=document.createElement('div');names.className='voter-popover';names.textContent='Röstat: '+voters.join(', ');row.append(names)}list.append(row)
   }
   if(!sorted.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga restauranger tillagda.';list.append(p)}
   const nameKey=makeNameKey($('voterName').value.trim());
   const hasVoted=!!nameKey&&votes.some(v=>v.nameKey===nameKey);
   $('voteButton').disabled=!ready||hasVoted;
   $('voteButton').textContent=hasVoted?'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase():'LÄGG MIN RÖST →';
+  const myVote=votes.find(v=>v.nameKey===nameKey&&v.createdBy===user?.uid);
+  $('undoButton').hidden=!myVote;
+  $('undoButton').disabled=!ready||!myVote;
 }
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
@@ -115,6 +120,17 @@ $('voteForm').addEventListener('submit',async e=>{
     localStorage.setItem('lunch-name',name);
     showFeedback('voteFeedback',`Tack ${name}! Din röst är sparad.`);
   }catch(err){showFeedback('voteFeedback',err.code==='permission-denied'?'Det namnet har redan röstat denna dag (eller så nekades rösten av säkerhetsreglerna).':'Kunde inte rösta: '+err.message,true)}
+  renderResults();
+});
+$('undoButton').addEventListener('click',async()=>{
+  const nameKey=makeNameKey($('voterName').value.trim());
+  const myVote=votes.find(v=>v.nameKey===nameKey&&v.createdBy===user?.uid);
+  if(!myVote)return showFeedback('voteFeedback','Det finns ingen röst att ångra från denna webbläsare.',true);
+  $('undoButton').disabled=true;
+  try{
+    await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',nameKey));
+    showFeedback('voteFeedback','Din röst är ångrad. Du kan rösta igen.');
+  }catch(err){showFeedback('voteFeedback','Kunde inte ångra rösten. Firebase-reglerna måste uppdateras: '+err.message,true)}
   renderResults();
 });
 $('suggestForm').addEventListener('submit',async e=>{
