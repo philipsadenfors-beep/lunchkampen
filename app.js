@@ -42,6 +42,31 @@ function workingWeek(){
   monday.setUTCDate(today.getUTCDate()-(today.getUTCDay()-1));
   return {id:`${w.year}-W${String(w.week).padStart(2,'0')}`,week:w.week,year:w.year,monday,day:day>=1&&day<=5?day-1:0};
 }
+function voteDeadline(){
+  const current=workingWeek();
+  // Selected day belongs to the displayed workweek in Stockholm.
+  const target=new Date(current.monday);target.setUTCDate(target.getUTCDate()+activeDay);
+  const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),11,5));
+  const tz=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Stockholm',timeZoneName:'shortOffset'}).formatToParts(probe).find(x=>x.type==='timeZoneName')?.value||'GMT+1';
+  const m=tz.match(/GMT([+-])(\\d{1,2})(?::(\\d{2}))?/);
+  const offset=m?(m[1]==='+'?1:-1)*(Number(m[2])*60+Number(m[3]||0)):60;
+  return new Date(probe.getTime()-offset*60000);
+}
+function votingOpen(){return Date.now()<voteDeadline().getTime()}
+function updateCountdown(){
+  const deadline=voteDeadline().getTime(),seconds=Math.max(0,Math.ceil((deadline-Date.now())/1000));
+  const pad=n=>String(n).padStart(2,'0');
+  const label=$('countdown');if(!label)return;
+  const title=$('countdownHeading');
+  if(seconds===0){label.textContent='Röstningen är stängd';title.textContent='Röstningen stängde kl. 11:05';}
+  else{const hours=Math.floor(seconds/3600),mins=Math.floor(seconds%3600/60),secs=seconds%60;
+    label.textContent=hours>99?Math.floor(hours/24)+' dagar kvar':pad(hours)+':'+pad(mins)+':'+pad(secs);
+    title.textContent='Röstningen stänger kl. 11:05';}
+  label.classList.toggle('closed',seconds===0);
+  $('voteButton').disabled=!ready||!votingOpen()||votes.some(v=>v.nameKey===makeNameKey($('voterName').value.trim()));
+  if(!votingOpen())$('voteButton').textContent='RÖSTNINGEN ÄR STÄNGD';
+  const undo=$('undoButton');if(undo&&!undo.hidden)undo.disabled=!ready||!votingOpen();
+}
 function dateLabel(d){return new Intl.DateTimeFormat('sv-SE',{timeZone:'UTC',day:'numeric',month:'short'}).format(d)}
 function plural(n){return `${n} ${n===1?'röst':'röster'}`}
 function showStatus(message,type=''){const el=$('connection');el.textContent=message;el.className='notice '+type;el.hidden=false}
@@ -100,7 +125,8 @@ function renderResults(){
   $('voteButton').textContent=hasVoted?'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase():'LÄGG MIN RÖST →';
   const myVote=votes.find(v=>v.nameKey===nameKey&&v.createdBy===user?.uid);
   $('undoButton').hidden=!myVote;
-  $('undoButton').disabled=!ready||!myVote;
+  $('undoButton').disabled=!ready||!myVote||!votingOpen();
+  updateCountdown();
 }
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
@@ -111,11 +137,12 @@ function refreshWeek(){const w=workingWeek();if(w.id===weekId)return;
   weekId=w.id;activeDay=w.day;$('weekLabel').textContent=`Vecka ${w.week} · ${w.year}`;
   const friday=new Date(w.monday);friday.setUTCDate(friday.getUTCDate()+4);
   $('weekDates').textContent=`${dateLabel(w.monday)} – ${dateLabel(friday)}`;
-  renderTabs();watchVotes();showFeedback('voteFeedback','');
+  renderTabs();watchVotes();showFeedback('voteFeedback','');updateCountdown();
 }
 $('voterName').addEventListener('input',renderResults);
 $('voteForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!ready)return;
+  if(!votingOpen())return showFeedback('voteFeedback','Röstningen för denna dag stängde kl. 11:05.',true);
   const name=$('voterName').value.trim().replace(/\s+/g,' '),restaurantId=$('restaurantSelect').value;
   if(name.length<2||name.length>35)return showFeedback('voteFeedback','Ange ett namn med 2–35 tecken.',true);
   if(!places().some(r=>r.id===restaurantId))return showFeedback('voteFeedback','Välj en giltig restaurang.',true);
@@ -132,6 +159,7 @@ $('undoButton').addEventListener('click',async()=>{
   const nameKey=makeNameKey($('voterName').value.trim());
   const myVote=votes.find(v=>v.nameKey===nameKey&&v.createdBy===user?.uid);
   if(!myVote)return showFeedback('voteFeedback','Det finns ingen röst att ångra från denna webbläsare.',true);
+  if(!votingOpen())return showFeedback('voteFeedback','Röstningen är stängd. Rösten kan inte ändras efter kl. 11:05.',true);
   $('undoButton').disabled=true;
   try{
     await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',nameKey));
@@ -159,7 +187,8 @@ async function main(){
       refreshWeek();watchVotes();renderPlaces();renderResults();
     });
     setInterval(refreshWeek,60000);
+    setInterval(updateCountdown,1000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshWeek()});
   }catch(err){showStatus('Fel vid anslutning: '+err.message,'error')}
 }
-refreshWeek();renderPlaces();main();
+refreshWeek();renderPlaces();updateCountdown();main();
