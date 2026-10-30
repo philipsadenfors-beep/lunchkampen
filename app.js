@@ -127,8 +127,10 @@ function renderResults(){
   $('voterName').readOnly=hasVoted;
   $('voterName').title=hasVoted?'Du har redan röstat med detta Google-konto. Ångra rösten först om du vill ändra.':'';
   const myVote=votes.find(v=>v.createdBy===user?.uid);
-  $('undoButton').hidden=!myVote;
-  $('undoButton').disabled=!ready||!myVote||!votingOpen();
+  $('undoButton').hidden=!user;
+  $('undoButton').disabled=!ready||!votingOpen();
+  $('undoButton').textContent=myVote?'↶ Ångra min röst':'↶ Ångra min röst';
+  $('undoButton').title=myVote?'Ta bort din röst så att du kan välja igen':'Om du inte har röstat med ditt Google-konto finns ingen röst att ångra';
   updateCountdown();
 }
 function myVoteDocId(){return user?.uid||''}
@@ -195,7 +197,7 @@ $('voteForm').addEventListener('submit',async e=>{
 $('undoButton').addEventListener('click',async()=>{
   const nameKey=makeNameKey($('voterName').value.trim());
   const myVote=votes.find(v=>v.createdBy===user?.uid);
-  if(!myVote)return showFeedback('voteFeedback','Det finns ingen röst att ångra från denna webbläsare.',true);
+  if(!myVote)return showFeedback('voteFeedback','Ingen röst är registrerad för detta Google-konto på den valda dagen. Äldre röster från anonym inloggning kan inte ångras med Google-kontot.',true);
   if(!votingOpen())return showFeedback('voteFeedback','Röstningen är stängd. Rösten kan inte ändras efter kl. '+closingTime()+'.',true);
   $('undoButton').disabled=true;
   try{
