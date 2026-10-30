@@ -127,10 +127,10 @@ function renderResults(){
   $('voterName').readOnly=hasVoted;
   $('voterName').title=hasVoted?'Du har redan röstat med detta Google-konto. Ångra rösten först om du vill ändra.':'';
   const myVote=votes.find(v=>v.createdBy===user?.uid);
-  $('undoButton').hidden=!user;
-  $('undoButton').disabled=!ready||!votingOpen();
-  $('undoButton').textContent=myVote?'↶ Ångra min röst':'↶ Ångra min röst';
-  $('undoButton').title=myVote?'Ta bort din röst så att du kan välja igen':'Om du inte har röstat med ditt Google-konto finns ingen röst att ångra';
+  $('undoButton').hidden=false; // Alltid synlig så användaren hittar funktionen.
+  $('undoButton').disabled=!ready||!votingOpen()||!myVote;
+  $('undoButton').textContent='↶ Ångra min röst';
+  $('undoButton').title=myVote?'Ta bort din röst så att du kan välja igen':'Du behöver först ha en röst registrerad med ditt Google-konto för vald dag';
   updateCountdown();
 }
 function myVoteDocId(){return user?.uid||''}
