@@ -232,7 +232,7 @@ function refreshWeek(){
   $('weekLabel').textContent=`Vecka ${w.week} · ${w.year}`;
   const friday=new Date(w.monday);friday.setUTCDate(friday.getUTCDate()+4);
   $('weekDates').textContent=`${dateLabel(w.monday)} – ${dateLabel(friday)}`;
-  renderTabs();watchVotes();watchChat();watchReactions();refreshLeague();showFeedback('voteFeedback','');updateCountdown();
+  renderTabs();watchVotes();watchChat();watchReactions();refreshLeague();watchAwCounts();if(awMode)watchAwDay();watchAwCounts();if(awMode){$('awWeekLabel').textContent=$('weekLabel').textContent;watchAwDay();}showFeedback('voteFeedback','');updateCountdown();
 }
 $('weekSelect').addEventListener('change',event=>{
   selectedWeekOffset=Number(event.target.value)===1?1:0;
@@ -303,7 +303,7 @@ async function main(){
     });
     $('googleLogout').addEventListener('click',async()=>{await signOut(auth)});
     onAuthStateChanged(auth,u=>{
-      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();votes=[];suggestions=[];user=u;ready=!!u;
+      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
       $('adminPanel').hidden=!isAdmin();
       $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
       $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
@@ -312,7 +312,7 @@ async function main(){
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
         watchVotes();watchChat();watchReactions();refreshLeague();
       } else showStatus('Logga in med Google för att se resultat och rösta.');
-      renderPlaces();renderResults();
+      renderPlaces();renderResults();renderAwTabs();if(!u){awAttendees=[];renderAwAttendees();}
     });
     setInterval(refreshWeek,60000);
     setInterval(refreshLeague,300000);
@@ -415,5 +415,96 @@ function maybeCelebrate(){
  $('winnerCelebration').hidden=false;
 }
 $('celebrationClose').addEventListener('click',()=>{$('winnerCelebration').hidden=true});
+
+
+let awDay=4,awMode=false,awAttendees=[],awCounts=[0,0,0,0,0],awCountUnsubs=[],awUnsubAttendees=()=>{},awUnsubChat=()=>{};
+function awAttendeeRef(){return doc(db,'weeks',weekId,'days',String(awDay),'awAttendees',user.uid)}
+function renderAwTabs(){
+ const nav=$('awTabs');nav.replaceChildren();
+ DAYS.forEach((day,i)=>{
+  const btn=document.createElement('button');btn.type='button';btn.className='aw-tab'+(awMode&&awDay===i?' active':'');
+  const label=document.createElement('strong');label.textContent=day+' AW';
+  const sub=document.createElement('span');sub.textContent=awCounts[i]+' '+(awCounts[i]===1?'anmäld':'anmälda');
+  btn.append(label,sub);btn.addEventListener('click',()=>openAw(i));nav.append(btn);
+ });
+}
+function renderAwAttendees(){
+ const list=$('awAttendeeList');list.replaceChildren();
+ const people=awAttendees.slice().sort((x,y)=>(x.name||'').localeCompare(y.name||'','sv'));
+ if(!people.length){list.textContent='Ingen har anmält sig ännu. Bli först!';}
+ for(const person of people){const el=document.createElement('span');el.className='aw-person';el.textContent='🥳 '+(person.name||'Kollega');list.append(el)}
+ $('awCount').textContent=people.length+' '+(people.length===1?'anmäld':'anmälda');
+ const own=people.find(p=>p.createdBy===user?.uid);
+ $('awJoin').disabled=!ready||!!own;
+ $('awJoin').textContent=own?'✓ Du är anmäld':'🥳 Jag är på!';
+ $('awLeave').hidden=!own;
+ $('awName').readOnly=!!own;
+ if(own)$('awName').value=own.name;
+}
+function watchAwCounts(){
+ awCountUnsubs.forEach(unsub=>unsub());awCountUnsubs=[];awCounts=[0,0,0,0,0];renderAwTabs();
+ if(!user)return;
+ for(let d=0;d<5;d++){
+  const unsubscribe=onSnapshot(collection(db,'weeks',weekId,'days',String(d),'awAttendees'),snap=>{
+   awCounts[d]=snap.size;renderAwTabs();
+  },err=>showStatus('AW-anmälningar kräver nya Firebase-regler: '+err.message,'error'));
+  awCountUnsubs.push(unsubscribe);
+ }
+}
+function watchAwDay(){
+ awUnsubAttendees();awUnsubChat();awAttendees=[];renderAwAttendees();
+ const list=$('awChatMessages');list.replaceChildren();
+ if(!user){list.textContent='Logga in med Google för att se AW-anmälningar och chatta.';return}
+ awUnsubAttendees=onSnapshot(collection(db,'weeks',weekId,'days',String(awDay),'awAttendees'),snap=>{
+  awAttendees=snap.docs.map(d=>d.data());renderAwAttendees();
+ },err=>showFeedback('awFeedback','Kunde inte läsa anmälningar: '+err.message,true));
+ const messages=query(collection(db,'weeks',weekId,'days',String(awDay),'awChat'),orderBy('createdAt','desc'),limit(60));
+ awUnsubChat=onSnapshot(messages,snap=>{
+  list.replaceChildren();const items=snap.docs.map(d=>d.data()).reverse();
+  if(!items.length)list.textContent='Inga meddelanden ännu. Starta AW-snacket!';
+  for(const msg of items){const el=document.createElement('div');el.className='aw-message';const by=document.createElement('strong');by.textContent=msg.senderName||'Kollega';const text=document.createElement('p');text.textContent=msg.text||'';el.append(by,text);list.append(el)}
+  list.scrollTop=list.scrollHeight;
+ },err=>{list.textContent='Kunde inte läsa AW-chatten: '+err.message});
+}
+function openAw(day){
+ awDay=day;awMode=true;document.body.classList.add('aw-mode');$('awPage').hidden=false;
+ $('awTitle').textContent=DAYS[day]+' AW 🎉';$('awWeekLabel').textContent=$('weekLabel').textContent;
+ $('awName').value=localStorage.getItem('lunch-name-'+(user?.uid||''))||$('voterName').value||user?.displayName||'';
+ renderAwTabs();watchAwDay();$('awPage').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function closeAw(){
+ awMode=false;document.body.classList.remove('aw-mode');$('awPage').hidden=true;
+ awUnsubAttendees();awUnsubChat();renderAwTabs();$('awTabs').scrollIntoView({behavior:'smooth'});
+}
+$('awBack').addEventListener('click',closeAw);
+$('awJoin').addEventListener('click',async()=>{
+ if(!user)return showFeedback('awFeedback','Logga in med Google först.',true);
+ const name=$('awName').value.trim().replace(/\s+/g,' ');
+ if(name.length<2||name.length>35)return showFeedback('awFeedback','Skriv ett namn med 2–35 tecken.',true);
+ if(awAttendees.some(p=>p.createdBy===user.uid))return;
+ $('awJoin').disabled=true;
+ try{
+  await setDoc(awAttendeeRef(),{name,createdBy:user.uid,createdAt:serverTimestamp()});
+  localStorage.setItem('lunch-name-'+user.uid,name);showFeedback('awFeedback','🥳 Du är anmäld till '+DAYS[awDay]+' AW!');
+ }catch(err){showFeedback('awFeedback','Kunde inte anmäla: '+err.message,true)}
+ finally{renderAwAttendees()}
+});
+$('awLeave').addEventListener('click',async()=>{
+ if(!user)return;
+ $('awLeave').disabled=true;
+ try{await deleteDoc(awAttendeeRef());showFeedback('awFeedback','Din AW-anmälan har tagits bort.')}
+ catch(err){showFeedback('awFeedback','Kunde inte avanmälas: '+err.message,true)}
+ finally{$('awLeave').disabled=false}
+});
+$('awChatForm').addEventListener('submit',async event=>{
+ event.preventDefault();if(!user)return showFeedback('awChatFeedback','Logga in med Google först.',true);
+ const input=$('awChatInput'),message=input.value.trim();if(!message||message.length>300)return;
+ $('awChatSend').disabled=true;
+ try{
+  await addDoc(collection(db,'weeks',weekId,'days',String(awDay),'awChat'),{senderName:(user.displayName||user.email||'Kollega').slice(0,60),text:message,createdBy:user.uid,createdAt:serverTimestamp()});
+  input.value='';showFeedback('awChatFeedback','');
+ }catch(err){showFeedback('awChatFeedback','Kunde inte skicka: '+err.message,true)}
+ finally{$('awChatSend').disabled=false}
+});
 
 refreshWeek();renderPlaces();updateCountdown();main();
