@@ -310,7 +310,7 @@ async function main(){
       if(u){$('voterName').value=localStorage.getItem('lunch-name-'+u.uid)||localStorage.getItem('lunch-name')||u.displayName||'';
         showStatus('● Inloggad med Google – röster delas med kollegorna','ok');
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
-        watchVotes();watchChat();watchReactions();refreshLeague();
+        watchVotes();watchChat();watchReactions();refreshLeague();watchAwCounts();if(awMode)watchAwDay();
       } else showStatus('Logga in med Google för att se resultat och rösta.');
       renderPlaces();renderResults();renderAwTabs();if(!u){awAttendees=[];renderAwAttendees();}
     });
