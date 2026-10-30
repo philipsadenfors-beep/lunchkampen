@@ -5,6 +5,7 @@ import { firebaseConfig } from './firebase-config.js';
 
 const ADMIN_EMAIL = 'philip.sadenfors@gmail.com';
 function isAdmin(){return !!user && user.email?.toLowerCase()===ADMIN_EMAIL && user.emailVerified && user.providerData.some(p=>p.providerId==='google.com')}
+const LUNCHBOX_ID = 'lunchbox-abstain';
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
 const DEFAULT_PLACES = [
   {id:'start-pong',name:'PONG'},
@@ -70,6 +71,7 @@ function updateCountdown(){
   $('voteButton').disabled=!ready||!votingOpen()||votes.some(v=>v.createdBy===user?.uid);
   if(!votingOpen())$('voteButton').textContent='RÖSTNINGEN ÄR STÄNGD';
   const undo=$('undoButton');if(undo&&!undo.hidden)undo.disabled=!ready||!votingOpen();
+  if($('lunchboxButton'))$('lunchboxButton').disabled=!ready||!votingOpen()||votes.some(v=>v.createdBy===user?.uid);
 }
 function dateLabel(d){return new Intl.DateTimeFormat('sv-SE',{timeZone:'UTC',day:'numeric',month:'short'}).format(d)}
 function plural(n){return `${n} ${n===1?'röst':'röster'}`}
@@ -104,13 +106,15 @@ function renderResults(){
   $('winnerName').textContent=leaders.length?leaders.map(r=>r.name).join(' / '):'Inga röster ännu';
   $('winnerVotes').textContent=plural(max);
   $('winnerNote').textContent=leaders.length>1?'Delad förstaplats!':max?'Flest röster just nu.':'Bli först med att välja lunchställe.';
-  const participants=votes.map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).filter(Boolean).sort((x,y)=>x.localeCompare(y,'sv'));
+  const participants=votes.filter(v=>v.restaurantId!==LUNCHBOX_ID).map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).filter(Boolean).sort((x,y)=>x.localeCompare(y,'sv'));
+  const lunchboxPeople=votes.filter(v=>v.restaurantId===LUNCHBOX_ID).map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).filter(Boolean).sort((x,y)=>x.localeCompare(y,'sv'));
   $('participantsTitle').textContent='Vilka ska med på '+DAYS[activeDay].toLowerCase()+'?';
   $('participantsCount').textContent=participants.length+' '+(participants.length===1?'person':'personer');
   const participantList=$('participantList');participantList.replaceChildren();
   if(!participants.length){const empty=document.createElement('p');empty.className='participants-empty';empty.textContent='Ingen har röstat den här dagen ännu.';participantList.append(empty)}
   else for(const person of participants){const tag=document.createElement('span');tag.className='participant-tag';tag.textContent=person;participantList.append(tag)}
-  $('totalVotes').textContent=plural(votes.length);
+  if(lunchboxPeople.length){const box=document.createElement('div');box.className='lunchbox-people';box.textContent='🥪 Matlåda (avstår): '+lunchboxPeople.join(', ');participantList.append(box)}
+  $('totalVotes').textContent=plural(votes.length-lunchboxPeople.length);
   $('resultTitle').textContent='Ställningen – '+DAYS[activeDay];
   const list=$('resultList');list.replaceChildren();
   for(let i=0;i<sorted.length;i++){
@@ -126,7 +130,10 @@ function renderResults(){
   renderAdminVotes();
   const hasVoted=!!user&&votes.some(v=>v.createdBy===user.uid);
   $('voteButton').disabled=!ready||hasVoted;
-  $('voteButton').textContent=hasVoted?'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase():'LÄGG MIN RÖST →';
+  const myChoice=votes.find(v=>v.createdBy===user?.uid);
+  $('voteButton').textContent=hasVoted?(myChoice?.restaurantId===LUNCHBOX_ID?'✓ Du har valt matlåda':'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase()):'LÄGG MIN RÖST →';
+  $('lunchboxButton').disabled=!ready||hasVoted||!votingOpen();
+  $('lunchboxButton').textContent=myChoice?.restaurantId===LUNCHBOX_ID?'✓ Du har valt matlåda':'🥪 Jag har matlåda så jag avstår min röst';
   $('voterName').readOnly=hasVoted;
   $('voterName').title=hasVoted?'Du har redan röstat med detta Google-konto. Ångra rösten först om du vill ändra.':'';
   const myVote=votes.find(v=>v.createdBy===user?.uid);
@@ -147,7 +154,7 @@ function renderAdminVotes(){
   for(const vote of votes.slice().sort((x,y)=>(x.voterName||'').localeCompare(y.voterName||'','sv'))){
     const entry=document.createElement('div');entry.className='admin-vote';
     const info=document.createElement('span');
-    info.textContent=(vote.voterName||'Okänd')+' – '+(places().find(p=>p.id===vote.restaurantId)?.name||vote.restaurantId);
+    info.textContent=(vote.voterName||'Okänd')+' – '+(vote.restaurantId===LUNCHBOX_ID?'Matlåda (avstår)':(places().find(p=>p.id===vote.restaurantId)?.name||vote.restaurantId));
     const remove=document.createElement('button');remove.type='button';remove.className='admin-delete';remove.textContent='Ta bort röst';
     remove.addEventListener('click',async()=>{
       if(!isAdmin()||!vote.id)return;
@@ -220,6 +227,22 @@ $('voteForm').addEventListener('submit',async e=>{
     showFeedback('voteFeedback',`Tack ${name}! Din röst är sparad.`);
   }catch(err){showFeedback('voteFeedback',err.code==='permission-denied'?'Det namnet har redan röstat denna dag (eller så nekades rösten av säkerhetsreglerna).':'Kunde inte rösta: '+err.message,true)}
   renderResults();
+});
+$('lunchboxButton').addEventListener('click',async()=>{
+  if(!ready||!user||!votingOpen())return;
+  const name=$('voterName').value.trim().replace(/\s+/g,' ');
+  if(name.length<2||name.length>35)return showFeedback('voteFeedback','Ange ett namn med 2–35 tecken.',true);
+  if(votes.some(v=>v.createdBy===user.uid))return showFeedback('voteFeedback','Du har redan gjort ett val för denna dag. Ångra det först.',true);
+  const btn=$('lunchboxButton');btn.disabled=true;
+  try{
+    await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()),{
+      nameKey:makeNameKey(name),restaurantId:LUNCHBOX_ID,voterName:name,createdBy:user.uid,createdAt:serverTimestamp()
+    });
+    localStorage.setItem('lunch-name-'+user.uid,name);
+    localStorage.setItem('lunch-name',name);
+    showFeedback('voteFeedback','🥪 Du har valt matlåda och avstår från restaurangröstningen. Du kan ångra valet.');
+  }catch(err){showFeedback('voteFeedback','Kunde inte spara matlåda: '+err.message,true)}
+  finally{renderResults()}
 });
 $('undoButton').addEventListener('click',async()=>{
   const nameKey=makeNameKey($('voterName').value.trim());
