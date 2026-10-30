@@ -6,6 +6,11 @@ service cloud.firestore {
         request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
+    function isAdmin() {
+      return googleUser() && request.auth.token.email_verified == true
+        && request.auth.token.email == 'philip.sadenfors@gmail.com';
+    }
+
     match /restaurants/{restaurantId} {
       allow read: if googleUser();
       allow create: if googleUser()
@@ -55,9 +60,9 @@ service cloud.firestore {
         && request.resource.data.restaurantId.size() <= 120
         && request.resource.data.createdAt == request.time;
       allow update: if false;
-      allow delete: if googleUser()
+      allow delete: if isAdmin() || (googleUser()
         && voterId == request.auth.uid
-        && resource.data.createdBy == request.auth.uid;
+        && resource.data.createdBy == request.auth.uid);
     }
   }
 }
