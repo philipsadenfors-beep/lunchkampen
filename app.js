@@ -127,7 +127,7 @@ async function main(){
       if(!u){try{await signInAnonymously(auth)}catch(err){showStatus('Anonym inloggning misslyckades. Aktivera Anonymous i Firebase Authentication. '+err.message,'error')}return}
       user=u;ready=true;showStatus('● Ansluten – röster delas direkt med alla kollegor','ok');
       unsubscribePlaces();unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
-      refreshWeek();renderPlaces();renderResults();
+      refreshWeek();watchVotes();renderPlaces();renderResults();
     });
     setInterval(refreshWeek,60000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshWeek()});
