@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
-import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
+import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
@@ -19,7 +19,7 @@ const DEFAULT_PLACES = [
   {id:'start-piren',name:'Piren'}
 ];
 const $ = id => document.getElementById(id);
-let auth,db,user=null,weekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},ready=false;
+let auth,db,user=null,weekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},ready=false;
 const savedName = localStorage.getItem('lunch-name') || '';
 $('voterName').value=savedName;
 
@@ -46,22 +46,23 @@ function voteDeadline(){
   const current=workingWeek();
   // Selected day belongs to the displayed workweek in Stockholm.
   const target=new Date(current.monday);target.setUTCDate(target.getUTCDate()+activeDay);
-  const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),11,5));
+  const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),11,activeDay===4?30:5));
   const tz=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Stockholm',timeZoneName:'shortOffset'}).formatToParts(probe).find(x=>x.type==='timeZoneName')?.value||'GMT+1';
-  const m=tz.match(/GMT([+-])(\\d{1,2})(?::(\\d{2}))?/);
+  const m=tz.match(/GMT([+-])([0-9]{1,2})(?::([0-9]{2}))?/);
   const offset=m?(m[1]==='+'?1:-1)*(Number(m[2])*60+Number(m[3]||0)):60;
   return new Date(probe.getTime()-offset*60000);
 }
+function closingTime(){return activeDay===4?'11:30':'11:05'}
 function votingOpen(){return Date.now()<voteDeadline().getTime()}
 function updateCountdown(){
   const deadline=voteDeadline().getTime(),seconds=Math.max(0,Math.ceil((deadline-Date.now())/1000));
   const pad=n=>String(n).padStart(2,'0');
   const label=$('countdown');if(!label)return;
   const title=$('countdownHeading');
-  if(seconds===0){label.textContent='Röstningen är stängd';title.textContent='Röstningen stängde kl. 11:05';}
+  if(seconds===0){label.textContent='Röstningen är stängd';title.textContent='Röstningen stängde kl. '+closingTime();}
   else{const hours=Math.floor(seconds/3600),mins=Math.floor(seconds%3600/60),secs=seconds%60;
     label.textContent=hours>99?Math.floor(hours/24)+' dagar kvar':pad(hours)+':'+pad(mins)+':'+pad(secs);
-    title.textContent='Röstningen stänger kl. 11:05';}
+    title.textContent='Röstningen stänger kl. '+closingTime();}
   label.classList.toggle('closed',seconds===0);
   $('voteButton').disabled=!ready||!votingOpen()||votes.some(v=>v.createdBy===user?.uid);
   if(!votingOpen())$('voteButton').textContent='RÖSTNINGEN ÄR STÄNGD';
@@ -77,7 +78,7 @@ function renderTabs(){
   for(let i=0;i<5;i++){
     const button=document.createElement('button');button.type='button';button.className='tab'+(i===activeDay?' active':'');
     button.setAttribute('aria-pressed',String(i===activeDay));
-    button.textContent=DAYS[i];button.addEventListener('click',()=>{activeDay=i;showFeedback('voteFeedback','');watchVotes();renderTabs()});
+    button.textContent=DAYS[i];button.addEventListener('click',()=>{activeDay=i;showFeedback('voteFeedback','');watchVotes();watchChat();renderTabs()});
     $('dayTabs').append(button);
   }
 }
@@ -134,16 +135,47 @@ function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)retur
   const path=collection(db,'weeks',weekId,'days',String(activeDay),'votes');
   unsubscribeVotes=onSnapshot(path,s=>{votes=s.docs.map(d=>d.data());renderResults()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
 }
+function watchChat(){
+  unsubscribeChat();const list=$('chatMessages');list.replaceChildren();
+  if(!user){list.textContent='Logga in med Google för att läsa och skriva i chatten.';return}
+  const messages=query(collection(db,'weeks',weekId,'days',String(activeDay),'chat'),orderBy('createdAt','desc'),limit(60));
+  unsubscribeChat=onSnapshot(messages,s=>{
+    list.replaceChildren();
+    const items=s.docs.map(d=>d.data()).reverse();
+    if(!items.length){const p=document.createElement('p');p.className='small';p.textContent='Inga meddelanden ännu. Starta snacket!';list.append(p)}
+    for(const item of items){
+      const el=document.createElement('div');el.className='chat-message';
+      const name=document.createElement('strong');name.textContent=item.senderName||'Kollega';
+      const msg=document.createElement('p');msg.textContent=item.text||'';
+      el.append(name,msg);list.append(el)
+    }
+    list.scrollTop=list.scrollHeight;
+  },e=>{list.textContent='Kunde inte läsa chatten: '+e.message});
+}
+$('chatForm').addEventListener('submit',async e=>{
+  e.preventDefault();if(!user)return showFeedback('chatFeedback','Logga in med Google först.',true);
+  const input=$('chatInput'),value=input.value.trim();
+  if(!value||value.length>300)return;
+  $('chatSend').disabled=true;
+  try{
+    await addDoc(collection(db,'weeks',weekId,'days',String(activeDay),'chat'),{
+      senderName:(user.displayName||user.email||'Kollega').slice(0,60),
+      text:value,createdBy:user.uid,createdAt:serverTimestamp()
+    });
+    input.value='';showFeedback('chatFeedback','');
+  }catch(err){showFeedback('chatFeedback','Kunde inte skicka: '+err.message,true)}
+  finally{$('chatSend').disabled=false}
+});
 function refreshWeek(){const w=workingWeek();if(w.id===weekId)return;
   weekId=w.id;activeDay=w.day;$('weekLabel').textContent=`Vecka ${w.week} · ${w.year}`;
   const friday=new Date(w.monday);friday.setUTCDate(friday.getUTCDate()+4);
   $('weekDates').textContent=`${dateLabel(w.monday)} – ${dateLabel(friday)}`;
-  renderTabs();watchVotes();showFeedback('voteFeedback','');updateCountdown();
+  renderTabs();watchVotes();watchChat();showFeedback('voteFeedback','');updateCountdown();
 }
 $('voterName').addEventListener('input',renderResults);
 $('voteForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!ready||!user)return;
-  if(!votingOpen())return showFeedback('voteFeedback','Röstningen för denna dag stängde kl. 11:05.',true);
+  if(!votingOpen())return showFeedback('voteFeedback','Röstningen för denna dag stängde kl. '+closingTime()+'.',true);
   const name=$('voterName').value.trim().replace(/\s+/g,' '),restaurantId=$('restaurantSelect').value;
   if(name.length<2||name.length>35)return showFeedback('voteFeedback','Ange ett namn med 2–35 tecken.',true);
   if(!places().some(r=>r.id===restaurantId))return showFeedback('voteFeedback','Välj en giltig restaurang.',true);
@@ -160,7 +192,7 @@ $('undoButton').addEventListener('click',async()=>{
   const nameKey=makeNameKey($('voterName').value.trim());
   const myVote=votes.find(v=>v.createdBy===user?.uid);
   if(!myVote)return showFeedback('voteFeedback','Det finns ingen röst att ångra från denna webbläsare.',true);
-  if(!votingOpen())return showFeedback('voteFeedback','Röstningen är stängd. Rösten kan inte ändras efter kl. 11:05.',true);
+  if(!votingOpen())return showFeedback('voteFeedback','Röstningen är stängd. Rösten kan inte ändras efter kl. '+closingTime()+'.',true);
   $('undoButton').disabled=true;
   try{
     await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()));
@@ -187,13 +219,13 @@ async function main(){
     });
     $('googleLogout').addEventListener('click',async()=>{await signOut(auth)});
     onAuthStateChanged(auth,u=>{
-      unsubscribeVotes();unsubscribePlaces();votes=[];suggestions=[];user=u;ready=!!u;
+      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();votes=[];suggestions=[];user=u;ready=!!u;
       $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
       $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
       if(u){$('voterName').value=localStorage.getItem('lunch-name')||u.displayName||'';
         showStatus('● Inloggad med Google – röster delas med kollegorna','ok');
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
-        watchVotes();
+        watchVotes();watchChat();
       } else showStatus('Logga in med Google för att se resultat och rösta.');
       renderPlaces();renderResults();
     });
