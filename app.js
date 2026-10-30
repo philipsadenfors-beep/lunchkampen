@@ -22,7 +22,7 @@ const DEFAULT_PLACES = [
   {id:'start-piren',name:'Piren'}
 ];
 const $ = id => document.getElementById(id);
-let auth,db,user=null,weekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},ready=false;
+let auth,db,user=null,weekId='',selectedWeekOffset=0,baseWeekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},ready=false;
 const savedName = localStorage.getItem('lunch-name') || '';
 $('voterName').value=savedName;
 
@@ -45,8 +45,15 @@ function workingWeek(){
   monday.setUTCDate(today.getUTCDate()-(today.getUTCDay()-1));
   return {id:`${w.year}-W${String(w.week).padStart(2,'0')}`,week:w.week,year:w.year,monday,day:day>=1&&day<=5?day-1:0};
 }
-function voteDeadline(){
+function selectedWeek(){
   const current=workingWeek();
+  const monday=new Date(current.monday);
+  monday.setUTCDate(monday.getUTCDate()+7*selectedWeekOffset);
+  const week=isoWeek(monday);
+  return {id:`${week.year}-W${String(week.week).padStart(2,'0')}`,year:week.year,week:week.week,monday,day:selectedWeekOffset===0?current.day:0};
+}
+function voteDeadline(){
+  const current=selectedWeek();
   // Selected day belongs to the displayed workweek in Stockholm.
   const target=new Date(current.monday);target.setUTCDate(target.getUTCDate()+activeDay);
   const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),11,activeDay===4?30:5));
@@ -204,12 +211,27 @@ $('chatForm').addEventListener('submit',async e=>{
   }catch(err){showFeedback('chatFeedback','Kunde inte skicka: '+err.message,true)}
   finally{$('chatSend').disabled=false}
 });
-function refreshWeek(){const w=workingWeek();if(w.id===weekId)return;
-  weekId=w.id;activeDay=w.day;$('weekLabel').textContent=`Vecka ${w.week} · ${w.year}`;
+function refreshWeek(){
+  const base=workingWeek();
+  if(baseWeekId!==base.id){baseWeekId=base.id;selectedWeekOffset=0;}
+  const w=selectedWeek();
+  const selector=$('weekSelect');
+  const nextMonday=new Date(base.monday);nextMonday.setUTCDate(nextMonday.getUTCDate()+7);
+  const next=isoWeek(nextMonday);
+  selector.options[0].textContent=`Denna vecka (v.${base.week})`;
+  selector.options[1].textContent=`Nästa vecka (v.${next.week})`;
+  selector.value=String(selectedWeekOffset);
+  if(w.id===weekId)return;
+  weekId=w.id;activeDay=w.day;
+  $('weekLabel').textContent=`Vecka ${w.week} · ${w.year}`;
   const friday=new Date(w.monday);friday.setUTCDate(friday.getUTCDate()+4);
   $('weekDates').textContent=`${dateLabel(w.monday)} – ${dateLabel(friday)}`;
   renderTabs();watchVotes();watchChat();showFeedback('voteFeedback','');updateCountdown();
 }
+$('weekSelect').addEventListener('change',event=>{
+  selectedWeekOffset=Number(event.target.value)===1?1:0;
+  refreshWeek();
+});
 $('voterName').addEventListener('input',renderResults);
 $('voteForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!ready||!user)return;
