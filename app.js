@@ -3,34 +3,6 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const BRAND_DEFAULT={name:'Elgiganten',url:'https://www.elgiganten.se/',main:'#092b65',accent:'#83d600',logo:''};
-const BRAND_KEY='lunchkampen-brand-v1';
-function validBrandUrl(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?u.href:null}catch{return null}}
-function applyBrand(input){
-  const b={...BRAND_DEFAULT,...input};
-  document.documentElement.style.setProperty('--brand-main',/^#[0-9a-f]{6}$/i.test(b.main)?b.main:BRAND_DEFAULT.main);
-  document.documentElement.style.setProperty('--brand-accent',/^#[0-9a-f]{6}$/i.test(b.accent)?b.accent:BRAND_DEFAULT.accent);
-  $('brandCompany').textContent=b.name;
-  $('brandSymbol').textContent=b.name.slice(0,1).toUpperCase();
-  const website=validBrandUrl(b.url)||BRAND_DEFAULT.url;
-  $('brandWebsite').href=website;$('brandWebsite').textContent=new URL(website).hostname;
-  const logo=validBrandUrl(b.logo);
-  const symbol=$('brandSymbol');symbol.style.backgroundImage=logo?'url("'+logo.replaceAll('"','%22')+'")':'';
-  symbol.classList.toggle('with-logo',!!logo);
-  $('brandNameInput').value=b.name;$('brandUrlInput').value=website;
-  $('brandMainColor').value=b.main;$('brandAccentColor').value=b.accent;$('brandLogoInput').value=b.logo||'';
-}
-applyBrand((()=>{try{return JSON.parse(localStorage.getItem(BRAND_KEY)||'null')}catch{return null}})());
-$('brandForm').addEventListener('submit',event=>{
- event.preventDefault();if(!isAdmin())return;
- const name=$('brandNameInput').value.trim(),url=validBrandUrl($('brandUrlInput').value);
- if(!name||!url)return showFeedback('brandFeedback','Ange ett företagsnamn och en giltig webbplats.',true);
- const logo=$('brandLogoInput').value.trim();if(logo&&!validBrandUrl(logo))return showFeedback('brandFeedback','Ange en giltig bildadress eller lämna logotypfältet tomt.',true);
- const brand={name,url,main:$('brandMainColor').value,accent:$('brandAccentColor').value,logo};
- localStorage.setItem(BRAND_KEY,JSON.stringify(brand));applyBrand(brand);
- showFeedback('brandFeedback','Temat är sparat i denna webbläsare. För gemensamt tema på alla enheter behövs databaskoppling.');
-});
-$('elgigantenPreset').addEventListener('click',()=>{if(!isAdmin())return;localStorage.setItem(BRAND_KEY,JSON.stringify(BRAND_DEFAULT));applyBrand(BRAND_DEFAULT);showFeedback('brandFeedback','Elgiganten-temat återställt.')});
 const ADMIN_EMAIL = 'philip.sadenfors@gmail.com';
 function isAdmin(){return !!user && user.email?.toLowerCase()===ADMIN_EMAIL && user.emailVerified && user.providerData.some(p=>p.providerId==='google.com')}
 const LUNCHBOX_ID = 'lunchbox-abstain';
@@ -327,7 +299,6 @@ async function main(){
     onAuthStateChanged(auth,u=>{
       unsubscribeVotes();unsubscribePlaces();unsubscribeChat();votes=[];suggestions=[];user=u;ready=!!u;
       $('adminPanel').hidden=!isAdmin();
-      $('brandSettings').hidden=!isAdmin();
       $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
       $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
       if(u){$('voterName').value=localStorage.getItem('lunch-name-'+u.uid)||localStorage.getItem('lunch-name')||u.displayName||'';
