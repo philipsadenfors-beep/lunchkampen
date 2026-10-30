@@ -75,6 +75,12 @@ function renderResults(){
   $('winnerName').textContent=leaders.length?leaders.map(r=>r.name).join(' / '):'Inga röster ännu';
   $('winnerVotes').textContent=plural(max);
   $('winnerNote').textContent=leaders.length>1?'Delad förstaplats!':max?'Flest röster just nu.':'Bli först med att välja lunchställe.';
+  const participants=votes.map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).filter(Boolean).sort((x,y)=>x.localeCompare(y,'sv'));
+  $('participantsTitle').textContent='Vilka ska med på '+DAYS[activeDay].toLowerCase()+'?';
+  $('participantsCount').textContent=participants.length+' '+(participants.length===1?'person':'personer');
+  const participantList=$('participantList');participantList.replaceChildren();
+  if(!participants.length){const empty=document.createElement('p');empty.className='participants-empty';empty.textContent='Ingen har röstat den här dagen ännu.';participantList.append(empty)}
+  else for(const person of participants){const tag=document.createElement('span');tag.className='participant-tag';tag.textContent=person;participantList.append(tag)}
   $('totalVotes').textContent=plural(votes.length);
   $('resultTitle').textContent='Ställningen – '+DAYS[activeDay];
   const list=$('resultList');list.replaceChildren();
