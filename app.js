@@ -1,10 +1,9 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
+import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs, getDocsFromServer } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const ADMIN_EMAIL = 'philip.sadenfors@gmail.com';
-function isAdmin(){return !!user && user.email?.toLowerCase()===ADMIN_EMAIL && user.emailVerified && user.providerData.some(p=>p.providerId==='google.com')}
+function isAdmin(){return false} // Ingen administratör kan verifieras med enbart namn.
 const LUNCHBOX_ID = 'lunchbox-abstain';
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
 const DEFAULT_PLACES = [
@@ -23,8 +22,14 @@ const DEFAULT_PLACES = [
 ];
 const $ = id => document.getElementById(id);
 let auth,db,user=null,weekId='',selectedWeekOffset=0,baseWeekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},unsubscribeReactions=()=>{},reactions=[],ready=false;
-const savedName = localStorage.getItem('lunch-name') || '';
-$('voterName').value=savedName;
+const LOGIN_KEY='lunchkampen-name-login';
+let displayName='';
+function loginDay(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
+function savedLogin(){try{const record=JSON.parse(localStorage.getItem(LOGIN_KEY)||'null');return record?.day===loginDay()&&typeof record.name==='string'?record.name:''}catch{return ''}}
+function applyName(name){displayName=name;$('voterName').value=name;$('awName').value=name;$('welcomeName').textContent=name;}
+function showLogin(){const name=savedLogin();if(name){applyName(name);$('nameGate').hidden=true;return}displayName='';$('nameGate').hidden=false;}
+$('nameGateForm').addEventListener('submit',event=>{event.preventDefault();const name=$('entryName').value.trim().replace(/\s+/g,' ');if(name.length<2||name.length>35){$('entryError').textContent='Skriv ett namn med 2–35 tecken.';return}localStorage.setItem(LOGIN_KEY,JSON.stringify({day:loginDay(),name}));applyName(name);$('nameGate').hidden=true;renderResults();renderAwAttendees();});
+showLogin();
 
 function stockholmDate(){
   const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
@@ -147,13 +152,13 @@ function renderResults(){
   $('voteButton').textContent=hasVoted?(myChoice?.restaurantId===LUNCHBOX_ID?'✓ Du har valt matlåda':'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase()):'LÄGG MIN RÖST →';
   $('lunchboxButton').disabled=!ready||hasVoted||!votingOpen();
   $('lunchboxButton').textContent=myChoice?.restaurantId===LUNCHBOX_ID?'✓ Du har valt matlåda':'🥪 Jag har matlåda så jag avstår min röst';
-  $('voterName').readOnly=hasVoted;
-  $('voterName').title=hasVoted?'Du har redan röstat med detta Google-konto. Ångra rösten först om du vill ändra.':'';
+  $('voterName').readOnly=true;
+  $('voterName').title='Namnet väljs på startsidan';
   const myVote=votes.find(v=>v.createdBy===user?.uid);
   $('undoButton').hidden=false; // Alltid synlig så användaren hittar funktionen.
   $('undoButton').disabled=!ready||!votingOpen()||!myVote;
   $('undoButton').textContent='↶ Ångra min röst';
-  $('undoButton').title=myVote?'Ta bort din röst så att du kan välja igen':'Du behöver först ha en röst registrerad med ditt Google-konto för vald dag';
+  $('undoButton').title=myVote?'Ta bort din röst så att du kan välja igen':'Du behöver först ha en röst registrerad med ditt enhet för vald dag';
   updateCountdown();
 }
 
@@ -188,7 +193,7 @@ function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)retur
 }
 function watchChat(){
   unsubscribeChat();const list=$('chatMessages');list.replaceChildren();
-  if(!user){list.textContent='Logga in med Google för att läsa och skriva i chatten.';return}
+  if(!user){list.textContent='Ange ditt namn på startsidan för att läsa och skriva i chatten.';return}
   const messages=query(collection(db,'weeks',weekId,'days',String(activeDay),'chat'),orderBy('createdAt','desc'),limit(60));
   unsubscribeChat=onSnapshot(messages,s=>{
     list.replaceChildren();
@@ -204,13 +209,13 @@ function watchChat(){
   },e=>{list.textContent='Kunde inte läsa chatten: '+e.message});
 }
 $('chatForm').addEventListener('submit',async e=>{
-  e.preventDefault();if(!user)return showFeedback('chatFeedback','Logga in med Google först.',true);
+  e.preventDefault();if(!user)return showFeedback('chatFeedback','Ange ditt namn på startsidan först.',true);
   const input=$('chatInput'),value=input.value.trim();
   if(!value||value.length>300)return;
   $('chatSend').disabled=true;
   try{
     await addDoc(collection(db,'weeks',weekId,'days',String(activeDay),'chat'),{
-      senderName:(user.displayName||user.email||'Kollega').slice(0,60),
+      senderName:(displayName||'Kollega').slice(0,60),
       text:value,createdBy:user.uid,createdAt:serverTimestamp()
     });
     input.value='';showFeedback('chatFeedback','');
@@ -242,13 +247,13 @@ $('voterName').addEventListener('input',renderResults);
 $('voteForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!ready||!user)return;
   if(!votingOpen())return showFeedback('voteFeedback','Röstningen för denna dag stängde kl. '+closingTime()+'.',true);
-  const name=$('voterName').value.trim().replace(/\s+/g,' '),restaurantId=$('restaurantSelect').value;
+  const name=displayName,restaurantId=$('restaurantSelect').value;
   if(name.length<2||name.length>35)return showFeedback('voteFeedback','Ange ett namn med 2–35 tecken.',true);
   if(!places().some(r=>r.id===restaurantId))return showFeedback('voteFeedback','Välj en giltig restaurang.',true);
   refreshWeek();const nameKey=makeNameKey(name);
   $('voteButton').disabled=true;
   try{
-    if(votes.some(v=>v.createdBy===user.uid))return showFeedback('voteFeedback','Du har redan röstat med ditt Google-konto den här dagen.',true);
+    if(votes.some(v=>v.createdBy===user.uid))return showFeedback('voteFeedback','Du har redan röstat på den här enheten den här dagen.',true);
     await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()),{nameKey,restaurantId,voterName:name,createdBy:user.uid,createdAt:serverTimestamp()});
     localStorage.setItem('lunch-name-'+user.uid,name);
     localStorage.setItem('lunch-name',name);
@@ -258,7 +263,7 @@ $('voteForm').addEventListener('submit',async e=>{
 });
 $('lunchboxButton').addEventListener('click',async()=>{
   if(!ready||!user||!votingOpen())return;
-  const name=$('voterName').value.trim().replace(/\s+/g,' ');
+  const name=displayName;
   if(name.length<2||name.length>35)return showFeedback('voteFeedback','Ange ett namn med 2–35 tecken.',true);
   if(votes.some(v=>v.createdBy===user.uid))return showFeedback('voteFeedback','Du har redan gjort ett val för denna dag. Ångra det först.',true);
   const btn=$('lunchboxButton');btn.disabled=true;
@@ -275,7 +280,7 @@ $('lunchboxButton').addEventListener('click',async()=>{
 $('undoButton').addEventListener('click',async()=>{
   const nameKey=makeNameKey($('voterName').value.trim());
   const myVote=votes.find(v=>v.createdBy===user?.uid);
-  if(!myVote)return showFeedback('voteFeedback','Ingen röst är registrerad för detta Google-konto på den valda dagen. Äldre röster från anonym inloggning kan inte ångras med Google-kontot.',true);
+  if(!myVote)return showFeedback('voteFeedback','Ingen röst är registrerad på den här enheten för den valda dagen.',true);
   if(!votingOpen())return showFeedback('voteFeedback','Röstningen är stängd. Rösten kan inte ändras efter kl. '+closingTime()+'.',true);
   $('undoButton').disabled=true;
   try{
@@ -297,28 +302,24 @@ async function main(){
   if(firebaseConfig.apiKey.startsWith('ERSATT_')){showStatus('För att koppla ihop alla kollegor: fyll i Firebase-inställningarna i firebase-config.js. Se STARTA-HAR.md.','error');$('voteButton').disabled=true;$('addButton').disabled=true;refreshWeek();renderPlaces();return}
   try{
     const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);
-    $('googleLogin').addEventListener('click',async()=>{
-      try{await signInWithPopup(auth,new GoogleAuthProvider())}
-      catch(err){showStatus('Google-inloggning misslyckades: '+err.message,'error')}
-    });
-    $('googleLogout').addEventListener('click',async()=>{await signOut(auth)});
+    // Firebase Anonymous används osynligt för att skilja enheter åt.
     onAuthStateChanged(auth,u=>{
       unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awCountGeneration++;awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
       $('adminPanel').hidden=!isAdmin();
-      $('googleLogin').hidden=!!u;$('googleLogout').hidden=!u;
-      $('accountLabel').textContent=u?'Inloggad: '+(u.displayName||u.email||'Google-konto'):'Logga in med Google för att rösta';
-      if(u){$('voterName').value=localStorage.getItem('lunch-name-'+u.uid)||localStorage.getItem('lunch-name')||u.displayName||'';
-        showStatus('● Inloggad med Google – röster delas med kollegorna','ok');
+      $('welcomeName').textContent=displayName;
+      showLogin();
+      if(u){applyName(savedLogin()||displayName);
+        showStatus('● Ansluten – röster delas med kollegorna','ok');
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
         watchVotes();watchChat();watchReactions();refreshLeague();watchAwCounts();if(awMode)watchAwDay();
-      } else showStatus('Logga in med Google för att se resultat och rösta.');
+      } else {showStatus('Ansluter till röstningen ...');signInAnonymously(auth).catch(err=>showStatus('Anslutning misslyckades. Kontrollera att Anonymous är aktiverat i Firebase: '+err.message,'error'));}
       renderPlaces();renderResults();renderAwTabs();if(!u){awAttendees=[];renderAwAttendees();}
     });
     setInterval(refreshWeek,60000);
     setInterval(refreshLeague,300000);
     setInterval(fetchAwCounts,20000);
     setInterval(updateCountdown,1000);
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshWeek();fetchAwCounts()}});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(!savedLogin())showLogin();refreshWeek();fetchAwCounts()}});
   }catch(err){showStatus('Fel vid anslutning: '+err.message,'error')}
 }
 
@@ -439,7 +440,7 @@ function renderAwAttendees(){
  $('awJoin').disabled=!ready||!!own;
  $('awJoin').textContent=own?'✓ Du är anmäld':'🥳 Jag är på!';
  $('awLeave').hidden=!own;
- $('awName').readOnly=!!own;
+ $('awName').readOnly=true;
  if(own)$('awName').value=own.name;
 }
 async function fetchAwCounts(){
@@ -470,7 +471,7 @@ function watchAwCounts(){
 function watchAwDay(){
  awUnsubAttendees();awUnsubChat();awAttendees=[];renderAwAttendees();
  const list=$('awChatMessages');list.replaceChildren();
- if(!user){list.textContent='Logga in med Google för att se AW-anmälningar och chatta.';return}
+ if(!user){list.textContent='Ange ditt namn på startsidan för att se AW-anmälningar och chatta.';return}
  awUnsubAttendees=onSnapshot(collection(db,'weeks',weekId,'days',String(awDay),'awAttendees'),snap=>{
   awAttendees=snap.docs.map(d=>d.data());awCounts[awDay]=snap.size;renderAwAttendees();renderAwTabs();
  },err=>showFeedback('awFeedback','Kunde inte läsa anmälningar: '+err.message,true));
@@ -485,7 +486,7 @@ function watchAwDay(){
 function openAw(day){
  awDay=day;awMode=true;document.body.classList.add('aw-mode');$('awPage').hidden=false;
  $('awTitle').textContent=DAYS[day]+' AW 🎉';$('awWeekLabel').textContent=$('weekLabel').textContent;
- $('awName').value=localStorage.getItem('lunch-name-'+(user?.uid||''))||$('voterName').value||user?.displayName||'';
+ $('awName').value=displayName;
  renderAwTabs();watchAwDay();$('awPage').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function closeAw(scrollBack=true){
@@ -494,7 +495,7 @@ function closeAw(scrollBack=true){
 }
 $('awBack').addEventListener('click',closeAw);
 $('awJoin').addEventListener('click',async()=>{
- if(!user)return showFeedback('awFeedback','Logga in med Google först.',true);
+ if(!user)return showFeedback('awFeedback','Ange ditt namn på startsidan först.',true);
  const name=$('awName').value.trim().replace(/\s+/g,' ');
  if(name.length<2||name.length>35)return showFeedback('awFeedback','Skriv ett namn med 2–35 tecken.',true);
  if(awAttendees.some(p=>p.createdBy===user.uid))return;
@@ -513,11 +514,11 @@ $('awLeave').addEventListener('click',async()=>{
  finally{$('awLeave').disabled=false}
 });
 $('awChatForm').addEventListener('submit',async event=>{
- event.preventDefault();if(!user)return showFeedback('awChatFeedback','Logga in med Google först.',true);
+ event.preventDefault();if(!user)return showFeedback('awChatFeedback','Ange ditt namn på startsidan först.',true);
  const input=$('awChatInput'),message=input.value.trim();if(!message||message.length>300)return;
  $('awChatSend').disabled=true;
  try{
-  await addDoc(collection(db,'weeks',weekId,'days',String(awDay),'awChat'),{senderName:(user.displayName||user.email||'Kollega').slice(0,60),text:message,createdBy:user.uid,createdAt:serverTimestamp()});
+  await addDoc(collection(db,'weeks',weekId,'days',String(awDay),'awChat'),{senderName:(displayName||'Kollega').slice(0,60),text:message,createdBy:user.uid,createdAt:serverTimestamp()});
   input.value='';showFeedback('awChatFeedback','');
  }catch(err){showFeedback('awChatFeedback','Kunde inte skicka: '+err.message,true)}
  finally{$('awChatSend').disabled=false}
