@@ -149,6 +149,8 @@ function renderResults(){
   renderReactionCounts();
   renderAdminVotes();
   const hasVoted=!!user&&votes.some(v=>v.createdBy===user.uid);
+  $('paidActions').hidden=!hasVoted||awMode;
+  if(!hasVoted)$('swishInfo').hidden=true;
   $('voteButton').disabled=!ready||hasVoted;
   const myChoice=votes.find(v=>v.createdBy===user?.uid);
   $('voteButton').textContent=hasVoted?(myChoice?.restaurantId===LUNCHBOX_ID?'✓ Du har valt matlåda':'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase()):'LÄGG MIN RÖST →';
@@ -539,3 +541,18 @@ $('awChatForm').addEventListener('submit',async event=>{
 });
 
 refreshWeek();renderPlaces();updateCountdown();main();
+
+function showSwishOption(action){
+ const boost=action==='boost',amount=boost?10:99;
+ $('swishHeading').textContent=boost?'🚀 Boosta din röst':'🛑 Veto för dagen';
+ $('swishAmount').textContent=amount+' kr';
+ $('swishMessage').textContent='Meddelande: LUNCHKAMPEN '+(boost?'BOOST':'VETO')+' '+DAYS[activeDay]+' '+$('weekLabel').textContent+' – '+displayName;
+ $('swishInfo').hidden=false;
+ $('swishInfo').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+$('boostAction').addEventListener('click',()=>showSwishOption('boost'));
+$('vetoAction').addEventListener('click',()=>showSwishOption('veto'));
+$('copySwish').addEventListener('click',async()=>{
+ try{await navigator.clipboard.writeText('0734282337');$('copySwish').textContent='✓ Kopierat!'}
+ catch{window.prompt('Kopiera Swish-numret:','0734282337')}
+});
