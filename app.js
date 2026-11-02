@@ -3,7 +3,9 @@ import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from 'https:/
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs, getDocsFromServer } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-function isAdmin(){return false} // Ingen administratör kan verifieras med enbart namn.
+const ADMIN_PASS='Phille123';
+const ADMIN_SESSION='lunchkampen-demo-admin';
+function isAdmin(){return sessionStorage.getItem(ADMIN_SESSION)==='1'}
 const LUNCHBOX_ID = 'lunchbox-abstain';
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
 const DEFAULT_PLACES = [
@@ -162,7 +164,39 @@ function renderResults(){
   updateCountdown();
 }
 
-function renderAdminVotes(){} // Borttaget: namn ger ingen säker administratörsbehörighet.
+function renderAdminVotes(){
+ const panel=$('adminPanel'),list=$('adminVoteList');
+ panel.hidden=!isAdmin();
+ if(!isAdmin())return;
+ $('adminDayLabel').textContent=DAYS[activeDay]+' · '+$('weekLabel').textContent;
+ list.replaceChildren();
+ if(!votes.length){list.textContent='Inga röster för denna dag.';return}
+ for(const vote of votes.slice().sort((x,y)=>(x.voterName||'').localeCompare(y.voterName||'','sv'))){
+  const item=document.createElement('div');item.className='admin-vote';
+  const name=document.createElement('span');
+  name.textContent=(vote.voterName||'Okänd')+' — '+(vote.restaurantId===LUNCHBOX_ID?'Matlåda':places().find(p=>p.id===vote.restaurantId)?.name||vote.restaurantId);
+  const button=document.createElement('button');button.type='button';button.className='admin-delete';button.textContent='Ta bort röst';
+  button.addEventListener('click',async()=>{
+   if(!isAdmin()||!confirm('Ta bort rösten från '+(vote.voterName||'Okänd')+'?'))return;
+   button.disabled=true;
+   try{await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',vote.id));showFeedback('adminFeedback','Rösten borttagen.')}
+   catch(err){showFeedback('adminFeedback','Kunde inte ta bort rösten: '+err.message,true);button.disabled=false}
+  });
+  item.append(name,button);list.append(item);
+ }
+}
+$('adminToggle').addEventListener('click',()=>{
+ if(isAdmin()){sessionStorage.removeItem(ADMIN_SESSION);$('adminPanel').hidden=true;$('adminToggle').textContent='🔒 Admin';return}
+ $('adminUnlock').hidden=false;$('adminPassword').value='';$('adminPassword').focus();
+});
+$('adminLoginForm').addEventListener('submit',event=>{
+ event.preventDefault();
+ if($('adminPassword').value!==ADMIN_PASS){$('adminLoginFeedback').textContent='Fel lösenord.';return}
+ sessionStorage.setItem(ADMIN_SESSION,'1');$('adminUnlock').hidden=true;$('adminToggle').textContent='🔓 Avsluta admin';
+ renderAdminVotes();$('adminPanel').scrollIntoView({behavior:'smooth'});
+});
+$('adminCancel').addEventListener('click',()=>{$('adminUnlock').hidden=true});
+
 function myVoteDocId(){return user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
@@ -287,6 +321,7 @@ async function main(){
 
       $('welcomeName').textContent=displayName;
       showLogin();
+      $('adminToggle').textContent=isAdmin()?'🔓 Avsluta admin':'🔒 Admin';
       if(u){applyName(savedLogin()||displayName);
         showStatus('● Ansluten – röster delas med kollegorna','ok');
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
