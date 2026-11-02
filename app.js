@@ -166,29 +166,29 @@ function voteDeadline(){
   const current=selectedWeek();
   // Selected day belongs to the displayed workweek in Stockholm.
   const target=new Date(current.monday);target.setUTCDate(target.getUTCDate()+activeDay);
-  const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),11,activeDay===4?30:5));
+  const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),11,activeDay===4?25:55));
   const tz=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Stockholm',timeZoneName:'shortOffset'}).formatToParts(probe).find(x=>x.type==='timeZoneName')?.value||'GMT+1';
   const m=tz.match(/GMT([+-])([0-9]{1,2})(?::([0-9]{2}))?/);
   const offset=m?(m[1]==='+'?1:-1)*(Number(m[2])*60+Number(m[3]||0)):60;
   return new Date(probe.getTime()-offset*60000);
 }
-function closingTime(){return activeDay===4?'11:30':'11:05'}
-const TEST_MODE = true; // Pausar tidsgränsen medan vi testar.
+function closingTime(){return activeDay===4?'11:25':'10:55'}
+const TEST_MODE = false; // Röstningen stängs automatiskt enligt dagens tid.
 function votingOpen(){return TEST_MODE || Date.now()<voteDeadline().getTime()}
 function updateCountdown(){
-  const deadline=voteDeadline().getTime(),seconds=Math.max(0,Math.ceil((deadline-Date.now())/1000));
-  const pad=n=>String(n).padStart(2,'0');
-  const label=$('countdown');if(!label){return;}
-  const title=$('countdownHeading');
-  if(seconds===0){label.textContent='Röstningen är stängd';title.textContent='Röstningen stängde kl. '+closingTime();}
-  else{const hours=Math.floor(seconds/3600),mins=Math.floor(seconds%3600/60),secs=seconds%60;
-    label.textContent=hours>99?Math.floor(hours/24)+' dagar kvar':pad(hours)+':'+pad(mins)+':'+pad(secs);
-    title.textContent='Röstningen stänger kl. '+closingTime();}
-  label.classList.toggle('closed',seconds===0);
-  $('voteButton').disabled=!ready||!votingOpen()||votes.some(v=>v.createdBy===user?.uid);
-  if(!votingOpen())$('voteButton').textContent='RÖSTNINGEN ÄR STÄNGD';
-  const undo=$('undoButton');if(undo&&!undo.hidden)undo.disabled=!ready||!votingOpen();
-  if($('lunchboxButton'))$('lunchboxButton').disabled=!ready||!votingOpen()||votes.some(v=>v.createdBy===user?.uid);
+ const deadline=voteDeadline().getTime(),seconds=Math.max(0,Math.ceil((deadline-Date.now())/1000)),closed=seconds===0;
+ const pad=n=>String(n).padStart(2,'0');
+ const label=$('countdown'),title=$('countdownHeading');
+ if(label&&title){
+  title.textContent=closed?'Dagens kamp är avgjord!':'Röstningen stänger kl. '+closingTime();
+  label.textContent=closed?($('winnerName').textContent||'Inväntar resultat'):seconds>359999?Math.ceil(seconds/86400)+' dagar kvar':pad(Math.floor(seconds/3600))+':'+pad(Math.floor(seconds%3600/60))+':'+pad(seconds%60);
+  label.classList.toggle('closed',closed);
+ }
+ const hasVoted=!!accountId&&votes.some(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user?.uid));
+ $('voteButton').disabled=!ready||closed||hasVoted;
+ if(closed)$('voteButton').textContent='🏆 DAGENS KAMP ÄR AVGJORD!';
+ const undo=$('undoButton');if(undo)undo.disabled=!ready||closed||!hasVoted;
+ $('lunchboxButton').disabled=!ready||closed||hasVoted;
 }
 function dateLabel(d){return new Intl.DateTimeFormat('sv-SE',{timeZone:'UTC',day:'numeric',month:'short'}).format(d)}
 function plural(n){return `${n} ${n===1?'röst':'röster'}`}
@@ -214,12 +214,35 @@ function renderPlaces(){
   for(const r of mine){const item=document.createElement('div');item.className='own-entry';const name=document.createElement('span');name.textContent=r.name;const btn=document.createElement('button');btn.className='delete';btn.textContent='Ta bort';btn.type='button';btn.addEventListener('click',async()=>{if(!confirm(`Ta bort ${r.name} ur listan? Historiska röster finns kvar.`))return;try{await deleteDoc(doc(db,'restaurants',r.id));showFeedback('suggestFeedback',`${r.name} borttagen.`)}catch(e){showFeedback('suggestFeedback','Kunde inte ta bort: '+e.message,true)}});item.append(name,btn);own.append(item)}
   renderResults();
 }
+let lastTieKey='';
+function renderTieWheel(leaders){
+ const panel=$('tieDuel'),wheel=$('tieWheel'),button=$('tieSpin'),out=$('tieOutcome');
+ if(leaders.length!==2||awMode){panel.hidden=true;lastTieKey='';return}
+ panel.hidden=false;
+ const key=weekId+'-'+activeDay+'-'+leaders.map(r=>r.id).sort().join('|');
+ if(lastTieKey!==key){
+  lastTieKey=key;wheel.style.transition='none';wheel.style.transform='rotate(0deg)';
+  out.textContent='Två restauranger leder på samma antal röster. Snurra hjulet för att avgöra duellen!';
+  button.disabled=false;
+ }
+ $('tieNameA').textContent=leaders[0].name;$('tieNameB').textContent=leaders[1].name;
+ wheel.style.background='conic-gradient(#b7ef57 0deg 180deg,#cf4aac 180deg 360deg)';
+ button.onclick=()=>{
+  if(button.disabled)return;button.disabled=true;
+  const choice=Math.floor(Math.random()*2),rotations=6*360+(choice===0?270:90);
+  wheel.style.transition='transform 3.8s cubic-bezier(.14,.75,.24,1)';
+  wheel.style.transform='rotate('+rotations+'deg)';
+  out.textContent='🎡 Duellen pågår...';
+  setTimeout(()=>{out.textContent='🏆 Hjulet valde '+leaders[choice].name+'!';button.disabled=false;wheel.style.transition='none';wheel.style.transform='rotate('+(rotations%360)+'deg)'},3900);
+ };
+}
 function renderResults(){
   const ballot=places(),counts=new Map(ballot.map(r=>[r.id,0]));
   for(const v of votes)counts.set(v.restaurantId,(counts.get(v.restaurantId)||0)+1);
   const sorted=ballot.map(r=>({...r,count:counts.get(r.id)||0})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'sv'));
   const max=sorted[0]?.count||0;
   const leaders=sorted.filter(r=>r.count===max&&max>0);
+  renderTieWheel(leaders);
   $('winnerName').textContent=leaders.length?leaders.map(r=>r.name).join(' / '):'Inga röster ännu';
   $('winnerVotes').textContent=plural(max);
   $('winnerNote').textContent=leaders.length>1?'Delad förstaplats!':max?'Flest röster just nu.':'Bli först med att välja lunchställe.';
@@ -505,6 +528,7 @@ async function refreshLeague(){
   const scores=new Map(),myDates=new Set();
   snapshots.forEach((snap,i)=>snap.forEach(d=>{
    const v=d.data();if(v.restaurantId===LUNCHBOX_ID)return;
+   if(!v.createdAt?.toMillis||v.createdAt.toMillis()<Date.parse('2026-11-02T21:29:00Z'))return;
    const key=v.createdBy||v.nameKey;if(!key)return;
    const display=v.voterName||decodeURIComponent(v.nameKey||'Okänd');
    const current=scores.get(key)||{name:display,score:0};
