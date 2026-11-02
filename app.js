@@ -24,13 +24,93 @@ const DEFAULT_PLACES = [
 ];
 const $ = id => document.getElementById(id);
 let auth,db,user=null,weekId='',selectedWeekOffset=0,baseWeekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},unsubscribeReactions=()=>{},reactions=[],ready=false;
-const LOGIN_KEY='lunchkampen-name-login';
-let displayName='';
+const LOGIN_KEY='lunchkampen-account-session';
+let displayName='',accountId='',accounts=[],unsubscribeAccounts=()=>{};
+const normalName=n=>n.trim().replace(/\s+/g,' ');
 function loginDay(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
-function savedLogin(){try{const record=JSON.parse(localStorage.getItem(LOGIN_KEY)||'null');return record?.day===loginDay()&&typeof record.name==='string'?record.name:''}catch{return ''}}
-function applyName(name){displayName=name;$('voterName').value=name;$('awName').value=name;$('welcomeName').textContent=name;}
-function showLogin(){const name=savedLogin();if(name){applyName(name);$('nameGate').hidden=true;return}displayName='';$('nameGate').hidden=false;}
-$('nameGateForm').addEventListener('submit',event=>{event.preventDefault();const name=$('entryName').value.trim().replace(/\s+/g,' ');if(name.length<2||name.length>35){$('entryError').textContent='Skriv ett namn med 2–35 tecken.';return}localStorage.setItem(LOGIN_KEY,JSON.stringify({day:loginDay(),name}));applyName(name);$('nameGate').hidden=true;renderResults();renderAwAttendees();});
+function savedLogin(){try{const value=JSON.parse(localStorage.getItem(LOGIN_KEY)||'null');return value?.day===loginDay()?value:null}catch{return null}}
+function applyName(name,id){displayName=name;accountId=id||'';$('voterName').value=name;$('awName').value=name;$('welcomeName').textContent=name}
+function gateError(msg){$('entryError').textContent=msg}
+function showLogin(){
+ const saved=savedLogin(),found=saved&&accounts.find(x=>x.id===saved.id);
+ if(found&&found.active!==false){applyName(found.name,found.id);$('nameGate').hidden=true;return}
+ applyName('','');$('nameGate').hidden=false;
+}
+async function passwordHash(name,password,salt){
+ const data=new TextEncoder().encode(salt+'|'+name.toLocaleLowerCase('sv-SE')+'|'+password);
+ const bytes=await crypto.subtle.digest('SHA-256',data);
+ return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
+}
+function updateAccountOptions(){
+ const term=$('accountSearch').value.trim().toLocaleLowerCase('sv-SE'),sel=$('accountSelect'),previous=sel.value;
+ sel.replaceChildren();
+ for(const item of accounts.filter(x=>x.active!==false&&x.name.toLocaleLowerCase('sv-SE').includes(term)).sort((x,y)=>x.name.localeCompare(y.name,'sv'))){
+  const option=document.createElement('option');option.value=item.id;option.textContent=item.name;sel.append(option);
+ }
+ if([...sel.options].some(o=>o.value===previous))sel.value=previous;
+ $('accountCount').textContent=sel.options.length+' användare';
+}
+function watchAccounts(){
+ unsubscribeAccounts();
+ unsubscribeAccounts=onSnapshot(collection(db,'accounts'),snapshot=>{
+  accounts=snapshot.docs.map(d=>({id:d.id,...d.data()}));
+  updateAccountOptions();showLogin();renderAccountAdmin();
+ },err=>gateError('Kunde inte läsa användare: '+err.message));
+}
+function openRegistration(open){$('registerArea').hidden=!open;$('loginArea').hidden=open;gateError('')}
+$('showRegister').addEventListener('click',()=>openRegistration(true));
+$('showLogin').addEventListener('click',()=>openRegistration(false));
+$('accountSearch').addEventListener('input',updateAccountOptions);
+$('nameGateForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!user)return gateError('Ansluter till Firebase. Försök igen.');
+ const found=accounts.find(x=>x.id===$('accountSelect').value);
+ if(!found)return gateError('Välj ett användarnamn i listan.');
+ try{
+  const hash=await passwordHash(found.name,$('loginPassword').value,found.salt);
+  if(hash!==found.passwordHash)return gateError('Fel lösenord.');
+  localStorage.setItem(LOGIN_KEY,JSON.stringify({id:found.id,day:loginDay()}));
+  applyName(found.name,found.id);$('nameGate').hidden=true;gateError('');renderResults();renderAwAttendees();
+ }catch(err){gateError('Inloggningen misslyckades: '+err.message)}
+});
+$('registerForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!user)return gateError('Ansluter till Firebase. Försök igen.');
+ const name=normalName($('registerName').value),password=$('registerPassword').value;
+ if(name.length<2||name.length>35)return gateError('Användarnamnet ska ha 2–35 tecken.');
+ if(password.length<6)return gateError('Lösenordet måste ha minst 6 tecken.');
+ const id=encodeURIComponent(name.toLocaleLowerCase('sv-SE'));
+ if(accounts.some(x=>x.id===id))return gateError('Användarnamnet är redan registrerat.');
+ try{
+  const salt=crypto.randomUUID(),hash=await passwordHash(name,password,salt);
+  await setDoc(doc(db,'accounts',id),{name,salt,passwordHash:hash,active:true,createdAt:serverTimestamp()});
+  localStorage.setItem(LOGIN_KEY,JSON.stringify({id,day:loginDay()}));
+  applyName(name,id);$('nameGate').hidden=true;gateError('');renderResults();
+ }catch(err){gateError('Registrering misslyckades: '+err.message)}
+});
+function renderAccountAdmin(){
+ const list=$('adminUsersList');if(!list||!isAdmin())return;
+ list.replaceChildren();
+ for(const member of accounts.slice().sort((x,y)=>x.name.localeCompare(y.name,'sv'))){
+  const row=document.createElement('div');row.className='admin-vote';
+  const label=document.createElement('strong');label.textContent=member.name;
+  const actions=document.createElement('div');actions.className='admin-user-actions';
+  const change=document.createElement('button');change.type='button';change.textContent='Byt lösenord';
+  change.addEventListener('click',async()=>{
+   const pass=prompt('Nytt lösenord för '+member.name+' (minst 6 tecken):');
+   if(pass===null)return;if(pass.length<6){alert('Minst 6 tecken krävs.');return}
+   try{await setDoc(doc(db,'accounts',member.id),{passwordHash:await passwordHash(member.name,pass,member.salt)},{merge:true});alert('Lösenord uppdaterat för '+member.name)}
+   catch(err){alert('Kunde inte ändra lösenord: '+err.message)}
+  });
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Ta bort';remove.className='admin-delete';
+  remove.addEventListener('click',async()=>{
+   if(!confirm('Ta bort kontot '+member.name+'?'))return;
+   try{await deleteDoc(doc(db,'accounts',member.id));alert('Användaren borttagen. Tidigare röster finns kvar.')}
+   catch(err){alert('Kunde inte ta bort användaren: '+err.message)}
+  });
+  actions.append(change,remove);row.append(label,actions);list.append(row);
+ }
+}
 showLogin();
 
 function stockholmDate(){
@@ -148,17 +228,17 @@ function renderResults(){
   if(!sorted.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga restauranger tillagda.';list.append(p)}
   renderReactionCounts();
   renderAdminVotes();
-  const hasVoted=!!user&&votes.some(v=>v.createdBy===user.uid);
+  const hasVoted=!!accountId&&votes.some(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user?.uid));
   $('paidActions').hidden=!hasVoted||awMode;
   if(!hasVoted)$('swishInfo').hidden=true;
   $('voteButton').disabled=!ready||hasVoted;
-  const myChoice=votes.find(v=>v.createdBy===user?.uid);
+  const myChoice=votes.find(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user?.uid));
   $('voteButton').textContent=hasVoted?(myChoice?.restaurantId===LUNCHBOX_ID?'✓ Du har valt matlåda':'✓ Du har redan röstat på '+DAYS[activeDay].toLowerCase()):'LÄGG MIN RÖST →';
   $('lunchboxButton').disabled=!ready||hasVoted||!votingOpen();
   $('lunchboxButton').textContent=myChoice?.restaurantId===LUNCHBOX_ID?'✓ Du har valt matlåda':'🥪 Jag har matlåda så jag avstår min röst';
   $('voterName').readOnly=true;
   $('voterName').title='Namnet väljs på startsidan';
-  const myVote=votes.find(v=>v.createdBy===user?.uid);
+  const myVote=votes.find(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user?.uid));
   $('undoButton').hidden=false; // Alltid synlig så användaren hittar funktionen.
   $('undoButton').disabled=!ready||!votingOpen()||!myVote;
   $('undoButton').textContent='↶ Ångra min röst';
@@ -195,11 +275,11 @@ $('adminLoginForm').addEventListener('submit',event=>{
  event.preventDefault();
  if($('adminPassword').value!==ADMIN_PASS){$('adminLoginFeedback').textContent='Fel lösenord.';return}
  sessionStorage.setItem(ADMIN_SESSION,'1');$('adminUnlock').hidden=true;$('adminToggle').textContent='🔓 Avsluta admin';
- renderAdminVotes();$('adminPanel').scrollIntoView({behavior:'smooth'});
+ renderAdminVotes();renderAccountAdmin();$('adminPanel').scrollIntoView({behavior:'smooth'});
 });
 $('adminCancel').addEventListener('click',()=>{$('adminUnlock').hidden=true});
 
-function myVoteDocId(){return user?.uid||''}
+function myVoteDocId(){return accountId||user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
   const path=collection(db,'weeks',weekId,'days',String(activeDay),'votes');
@@ -267,10 +347,10 @@ $('voteForm').addEventListener('submit',async e=>{
   refreshWeek();const nameKey=makeNameKey(name);
   $('voteButton').disabled=true;
   try{
-    if(votes.some(v=>v.createdBy===user.uid))return showFeedback('voteFeedback','Du har redan röstat på den här enheten den här dagen.',true);
-    await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()),{nameKey,restaurantId,voterName:name,createdBy:user.uid,createdAt:serverTimestamp()});
-    localStorage.setItem('lunch-name-'+user.uid,name);
-    localStorage.setItem('lunch-name',name);
+    if(votes.some(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user.uid)))return showFeedback('voteFeedback','Du har redan röstat på den här enheten den här dagen.',true);
+    await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()),{nameKey,restaurantId,voterName:name,accountId,createdBy:user.uid,createdAt:serverTimestamp()});
+    
+    
     showFeedback('voteFeedback',`Tack ${name}! Din röst är sparad.`);
   }catch(err){showFeedback('voteFeedback',err.code==='permission-denied'?'Det namnet har redan röstat denna dag (eller så nekades rösten av säkerhetsreglerna).':'Kunde inte rösta: '+err.message,true)}
   renderResults();
@@ -279,21 +359,21 @@ $('lunchboxButton').addEventListener('click',async()=>{
   if(!ready||!user||!votingOpen())return;
   const name=displayName;
   if(name.length<2||name.length>35)return showFeedback('voteFeedback','Ange ett namn med 2–35 tecken.',true);
-  if(votes.some(v=>v.createdBy===user.uid))return showFeedback('voteFeedback','Du har redan gjort ett val för denna dag. Ångra det först.',true);
+  if(votes.some(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user.uid)))return showFeedback('voteFeedback','Du har redan gjort ett val för denna dag. Ångra det först.',true);
   const btn=$('lunchboxButton');btn.disabled=true;
   try{
     await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',myVoteDocId()),{
-      nameKey:makeNameKey(name),restaurantId:LUNCHBOX_ID,voterName:name,createdBy:user.uid,createdAt:serverTimestamp()
+      nameKey:makeNameKey(name),restaurantId:LUNCHBOX_ID,voterName:name,accountId,createdBy:user.uid,createdAt:serverTimestamp()
     });
-    localStorage.setItem('lunch-name-'+user.uid,name);
-    localStorage.setItem('lunch-name',name);
+    
+    
     showFeedback('voteFeedback','🥪 Du har valt matlåda och avstår från restaurangröstningen. Du kan ångra valet.');
   }catch(err){showFeedback('voteFeedback','Kunde inte spara matlåda: '+err.message,true)}
   finally{renderResults()}
 });
 $('undoButton').addEventListener('click',async()=>{
   const nameKey=makeNameKey($('voterName').value.trim());
-  const myVote=votes.find(v=>v.createdBy===user?.uid);
+  const myVote=votes.find(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user?.uid));
   if(!myVote)return showFeedback('voteFeedback','Ingen röst är registrerad på den här enheten för den valda dagen.',true);
   if(!votingOpen())return showFeedback('voteFeedback','Röstningen är stängd. Rösten kan inte ändras efter kl. '+closingTime()+'.',true);
   $('undoButton').disabled=true;
@@ -324,18 +404,19 @@ async function main(){
       $('welcomeName').textContent=displayName;
       showLogin();
       $('adminToggle').textContent=isAdmin()?'🔓 Avsluta admin':'🔒 Admin';
-      if(u){applyName(savedLogin()||displayName);
+      if(u){watchAccounts();
         showStatus('● Ansluten – röster delas med kollegorna','ok');
         unsubscribePlaces=onSnapshot(collection(db,'restaurants'),s=>{suggestions=s.docs.map(d=>({id:d.id,...d.data()}));renderPlaces()},err=>showStatus('Kunde inte läsa restauranger: '+err.message,'error'));
         watchVotes();watchChat();watchReactions();refreshLeague();watchAwCounts();if(awMode)watchAwDay();
       } else {showStatus('Ansluter till röstningen ...');signInAnonymously(auth).catch(err=>showStatus('Anslutning misslyckades. Kontrollera att Anonymous är aktiverat i Firebase: '+err.message,'error'));}
+      if(!u){unsubscribeAccounts();accounts=[];updateAccountOptions();showLogin()}
       renderPlaces();renderResults();renderAwTabs();if(!u){awAttendees=[];renderAwAttendees();}
     });
     setInterval(refreshWeek,60000);
     setInterval(refreshLeague,300000);
     setInterval(fetchAwCounts,20000);
     setInterval(updateCountdown,1000);
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(!savedLogin())showLogin();refreshWeek();fetchAwCounts()}});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden){showLogin();refreshWeek();fetchAwCounts()}});
   }catch(err){showStatus('Fel vid anslutning: '+err.message,'error')}
 }
 
@@ -518,7 +599,7 @@ $('awJoin').addEventListener('click',async()=>{
  $('awJoin').disabled=true;
  try{
   await setDoc(awAttendeeRef(),{name,createdBy:user.uid,createdAt:serverTimestamp()});
-  localStorage.setItem('lunch-name-'+user.uid,name);showFeedback('awFeedback','🥳 Du är anmäld till '+DAYS[awDay]+' AW!');
+  showFeedback('awFeedback','🥳 Du är anmäld till '+DAYS[awDay]+' AW!');
  }catch(err){showFeedback('awFeedback','Kunde inte anmäla: '+err.message,true)}
  finally{renderAwAttendees()}
 });
