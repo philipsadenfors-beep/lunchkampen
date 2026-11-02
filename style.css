@@ -117,3 +117,28 @@ body.aw-mode #dayTabs .tab{cursor:pointer}
 .name-gate[hidden]{display:none!important}.name-gate{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;padding:22px;background:radial-gradient(circle at 15% 5%,#12694c,#073b2d 60%,#05281e)}.name-gate-card{width:min(100%,480px);background:#fffef7;border-radius:26px;padding:35px 30px;text-align:center;box-shadow:0 28px 80px #0006}.name-gate-card img{max-width:100%;object-fit:contain}.name-gate-card h1{font:900 clamp(24px,5vw,34px)/1.2 Outfit,sans-serif;color:#075037;margin:15px 0}.name-gate-card p{color:#5a7464;font-size:15px}.name-gate-card form{display:flex;flex-direction:column;text-align:left;gap:10px;margin-top:24px}.name-gate-card label{font-weight:800;color:#1d4936}.name-gate-card input{font-size:17px;padding:15px;border:1px solid #bed2be;border-radius:12px}.name-gate-card button{border:0;border-radius:12px;padding:15px;background:#b9ee54;color:#123d2a;font-weight:900;cursor:pointer}.name-welcome{padding:13px 18px;border:1px solid #dbe9d5;border-radius:12px;background:#f2f9ed;margin:12px 0;color:#194934}
 
 .name-welcome{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.admin-toggle{margin-left:auto;padding:8px 12px;background:#e1efd9;border:1px solid #b6d3aa;border-radius:9px;color:#204d31;font-weight:800;cursor:pointer}.admin-unlock[hidden],.admin-panel[hidden]{display:none!important}.admin-unlock{background:#fff;border:1px solid #dbe8d4;border-radius:12px;padding:16px;margin-bottom:15px}.admin-unlock form{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.admin-unlock input{padding:9px;border-radius:8px;border:1px solid #bcd0b8}.admin-unlock button{padding:9px 13px;border-radius:8px;border:1px solid #bcd0b8;background:#e4f0df;cursor:pointer;font-weight:700}.admin-panel{margin:20px 0;border:2px solid #d6b453}.admin-vote{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e4e7df}.admin-delete{padding:8px 12px;border:1px solid #e6a8a5;border-radius:8px;background:#fff0ec;color:#8d2727;cursor:pointer;font-weight:800}.admin-delete:disabled{opacity:.6}
+
+/* Röstbaserade Swish-val mellan ledarrutan och röstningspanelen */
+.paid-actions[hidden],.swish-info[hidden]{display:none!important}
+.paid-actions{margin:16px 0 18px;padding:22px 24px;border-radius:18px;border:1px solid #cfe7b7;background:linear-gradient(120deg,#f2ffde,#fffaf0);box-shadow:0 8px 22px #193e1920}
+.paid-actions-head{display:flex;justify-content:space-between;align-items:center;gap:14px}
+.paid-actions-head h2{margin:4px 0 5px;font-size:clamp(20px,3vw,25px);color:#104532}
+.paid-actions-head p{margin:0 0 15px;color:#506c56;font-size:13px}
+.paid-eyebrow{font-size:10px;letter-spacing:.8px;font-weight:900;color:#a06d13}
+.paid-sparkle{font-size:38px}
+.paid-actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.paid-action{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:16px 19px;border-radius:13px;text-align:left;cursor:pointer;border:1px solid #c4e0aa;transition:transform .15s,box-shadow .15s}
+.paid-action:hover{transform:translateY(-2px);box-shadow:0 6px 15px #193e1920}
+.paid-action span{font-size:15px;font-weight:900}
+.paid-action strong{font:900 28px Outfit,sans-serif}
+.paid-action small{font-size:11px;font-weight:700}
+.paid-boost{background:#d7f7a5;color:#164832}
+.paid-veto{background:#fff0d2;border-color:#f2d29b;color:#753a18}
+.swish-info{margin-top:15px;padding:16px;border-radius:13px;background:#fff;border:1px solid #dce6d4}
+.swish-info>strong{font-size:17px;color:#184732}
+.swish-info p{margin:10px 0;font-size:13px}
+.swish-number{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:12px;background:#eef9e9;border-radius:10px}
+.swish-number span{font-weight:900;font-size:21px;letter-spacing:.3px;color:#10442f}
+.swish-number button{border:0;background:#115b41;color:white;padding:9px 12px;border-radius:8px;font-weight:800;cursor:pointer}
+.swish-disclaimer{color:#7e5a3b;font-size:12px!important}
+@media(max-width:580px){.paid-actions{padding:17px}.paid-actions-grid{grid-template-columns:1fr}.paid-sparkle{display:none}}
