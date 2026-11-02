@@ -42,14 +42,25 @@ async function passwordHash(name,password,salt){
  return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
 }
 function updateAccountOptions(){
- const term=$('accountSearch').value.trim().toLocaleLowerCase('sv-SE'),sel=$('accountSelect'),previous=sel.value;
- sel.replaceChildren();
- for(const item of accounts.filter(x=>x.active!==false&&x.name.toLocaleLowerCase('sv-SE').includes(term)).sort((x,y)=>x.name.localeCompare(y.name,'sv'))){
-  const option=document.createElement('option');option.value=item.id;option.textContent=item.name;sel.append(option);
+ const field=$('accountSearch'),term=field.value.trim().toLocaleLowerCase('sv-SE'),list=$('accountOptions');
+ list.replaceChildren();
+ const matching=accounts.filter(x=>x.active!==false&&x.name.toLocaleLowerCase('sv-SE').includes(term)).sort((x,y)=>x.name.localeCompare(y.name,'sv'));
+ for(const member of matching){
+  const option=document.createElement('button');option.type='button';option.className='account-option';option.textContent=member.name;option.setAttribute('role','option');
+  option.addEventListener('mousedown',e=>e.preventDefault());
+  option.addEventListener('click',()=>{field.value=member.name;list.hidden=true;$('loginPassword').focus()});
+  list.append(option);
  }
- if([...sel.options].some(o=>o.value===previous))sel.value=previous;
- $('accountCount').textContent=sel.options.length+' användare';
+ if(!matching.length){const empty=document.createElement('div');empty.className='account-option-empty';empty.textContent='Inga matchande användare';list.append(empty)}
+ $('accountCount').textContent=matching.length+' användare';
 }
+function revealAccountOptions(){updateAccountOptions();$('accountOptions').hidden=false}
+$('accountSearch').addEventListener('focus',revealAccountOptions);
+$('accountSearch').addEventListener('click',revealAccountOptions);
+$('accountSearch').addEventListener('input',revealAccountOptions);
+$('accountSearch').addEventListener('keydown',e=>{if(e.key==='Escape')$('accountOptions').hidden=true;if(e.key==='ArrowDown'){e.preventDefault();$('accountOptions').querySelector('button')?.focus()}});
+$('accountOptions').addEventListener('keydown',e=>{if(e.key==='Escape'){$('accountOptions').hidden=true;$('accountSearch').focus()}});
+document.addEventListener('click',e=>{if(!e.target.closest('.account-picker'))$('accountOptions').hidden=true});
 function watchAccounts(){
  unsubscribeAccounts();
  unsubscribeAccounts=onSnapshot(collection(db,'accounts'),snapshot=>{
@@ -64,7 +75,7 @@ $('accountSearch').addEventListener('input',updateAccountOptions);
 $('nameGateForm').addEventListener('submit',async event=>{
  event.preventDefault();
  if(!user)return gateError('Ansluter till Firebase. Försök igen.');
- const found=accounts.find(x=>x.id===$('accountSelect').value);
+ const found=accounts.find(x=>x.active!==false&&x.name.toLocaleLowerCase('sv-SE')===$('accountSearch').value.trim().toLocaleLowerCase('sv-SE'));
  if(!found)return gateError('Välj ett användarnamn i listan.');
  try{
   const hash=await passwordHash(found.name,$('loginPassword').value,found.salt);
