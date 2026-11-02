@@ -7,7 +7,7 @@
   <meta name="description" content="LUNCHKAMPEN – kollegornas lunchduell. Rösta fram dagens lunchfavorit varje vecka.">
   <title>LUNCHKAMPEN | Kollegornas lunchduell</title>
   <link rel="icon" type="image/webp" href="lunchkampen-logo.webp">
-  <link rel="stylesheet" href="style.css?v=20261102-32">
+  <link rel="stylesheet" href="style.css?v=20261102-33">
 </head>
 <body>
   <section id="nameGate" class="name-gate" aria-label="Logga in i Lunchkampen"><div class="name-gate-card">
@@ -37,6 +37,7 @@
     <div id="connection" class="notice" role="status">Ansluter till den gemensamma röstningen …</div>
     <div class="intro"><span class="intro-star">✦</span> Rösta på din favorit. Följ kampen live. Låt bästa lunchstället vinna! <span class="intro-star">✦</span></div>
     <section class="weekline" aria-label="Aktuell vecka"><div><div class="eyebrow">AKTUELL VECKA</div><strong id="weekLabel">Vecka –</strong><p id="weekDates"></p></div><div class="week-picker"><label for="weekSelect">Välj röstningsvecka</label><select id="weekSelect" aria-label="Välj röstningsvecka"><option value="0">Denna vecka</option><option value="1">Nästa vecka</option></select></div></section>
+    <section class="daily-clock" aria-live="off"><span id="countdownHeading">Röstningen stänger kl. 10:55</span><strong id="countdown">--:--:--</strong></section>
     <nav class="tabs" id="dayTabs" aria-label="Välj veckodag"></nav>
     
     <div class="aw-label">✨ AFTER WORK · VÄLJ EN DAG ✨</div>
@@ -62,6 +63,7 @@
         <p class="swish-disclaimer">Observera: Betalningen verifieras inte automatiskt. Att visa Swish-uppgifter aktiverar ingen boost eller veto. Funktionen behöver betalningsbekräftelse innan resultatet kan ändras.</p>
       </div>
     </section>
+    <section id="tieDuel" class="tie-duel" hidden><div class="tie-heading">⚔️ LUNCHDUELL – DET ÄR OAVGJORT!</div><p>Två restauranger har lika många röster.</p><div class="tie-options"><strong id="tieNameA"></strong><span>VS</span><strong id="tieNameB"></strong></div><div class="tie-wheel-wrap"><div class="tie-pointer">▼</div><div id="tieWheel" class="tie-wheel"><span>🎡</span></div></div><button id="tieSpin" type="button">🎡 SPIN THE WHEEL!</button><p id="tieOutcome" role="status"></p></section>
     <div class="two-col">
       <section class="panel" aria-labelledby="voteTitle"><h2 id="voteTitle">Din röst i kampen</h2><p class="muted">Välj ett lunchställe.</p>
         <form id="voteForm"><input id="voterName" type="hidden">
@@ -81,6 +83,6 @@
     <footer>Ny röstningsvecka börjar automatiskt efter fredag. Tid och veckonummer följer svensk tid (Stockholm). <span>🏆 Må bästa lunch vinna!</span></footer>
   </main>
   <aside class="chat-sidebar" aria-label="Lunchsnacket"><section class="panel chat-panel" aria-labelledby="chatTitle"><div class="panel-heading"><div><h2 id="chatTitle">💬 Lunchsnacket</h2><p class="muted">Övertala kollegorna! Chatten gäller vald dag och aktuell vecka.</p></div></div><div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-label="Lunchchatten"></div><form id="chatForm" class="chat-form"><label for="chatInput">Skriv ett meddelande</label><div class="chat-controls"><input id="chatInput" maxlength="300" placeholder="PONG idag? 🍜" required><button id="chatSend" type="submit" class="secondary">Skicka</button></div></form><p id="chatFeedback" class="feedback" role="status"></p></section><section class="sponsor-demo" aria-label="Testannons för Il Ponte"><div class="sponsor-tag">ANNONS · DEMO</div><div class="sponsor-inner"><div class="sponsor-emblem" aria-hidden="true">🍕</div><div><div class="sponsor-name">IL PONTE</div><p>Just nu ingår valfri läsk!</p></div></div></section></aside>
-  <script type="module" src="app.js?v=20261102-32"></script>
+  <script type="module" src="app.js?v=20261102-33"></script>
 </body>
 </html>
