@@ -7,15 +7,14 @@
   <meta name="description" content="LUNCHKAMPEN – kollegornas lunchduell. Rösta fram dagens lunchfavorit varje vecka.">
   <title>LUNCHKAMPEN | Kollegornas lunchduell</title>
   <link rel="icon" type="image/webp" href="lunchkampen-logo.webp">
-  <link rel="stylesheet" href="style.css?v=20261102-30">
+  <link rel="stylesheet" href="style.css?v=20261102-31">
 </head>
 <body>
   <section id="nameGate" class="name-gate" aria-label="Logga in i Lunchkampen"><div class="name-gate-card">
     <img src="lunchkampen-logo.webp" alt="Lunchkampen" width="110" height="110"><h1>Välkommen till LUNCHKAMPEN 🏆</h1>
     <div id="loginArea"><p>Välj ditt användarnamn och skriv ditt lösenord.</p>
       <form id="nameGateForm">
-        <label for="accountSearch">Sök efter ditt användarnamn</label><input id="accountSearch" type="search" autocomplete="off" placeholder="Skriv för att filtrera listan">
-        <label for="accountSelect">Användarnamn</label><select id="accountSelect" required size="5" aria-label="Registrerade användarnamn"></select><small id="accountCount"></small>
+        <label for="accountSearch">Användarnamn</label><div class="account-picker"><input id="accountSearch" type="text" required autocomplete="off" placeholder="Skriv eller välj användarnamn" aria-controls="accountOptions" aria-autocomplete="list"><div id="accountOptions" class="account-options" role="listbox" hidden></div></div><small id="accountCount"></small>
         <label for="loginPassword">Lösenord</label><input id="loginPassword" type="password" required autocomplete="current-password">
         <button type="submit">🚀 Logga in</button>
       </form>
@@ -82,6 +81,6 @@
     <footer>Ny röstningsvecka börjar automatiskt efter fredag. Tid och veckonummer följer svensk tid (Stockholm). <span>🏆 Må bästa lunch vinna!</span></footer>
   </main>
   <aside class="chat-sidebar" aria-label="Lunchsnacket"><section class="panel chat-panel" aria-labelledby="chatTitle"><div class="panel-heading"><div><h2 id="chatTitle">💬 Lunchsnacket</h2><p class="muted">Övertala kollegorna! Chatten gäller vald dag och aktuell vecka.</p></div></div><div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-label="Lunchchatten"></div><form id="chatForm" class="chat-form"><label for="chatInput">Skriv ett meddelande</label><div class="chat-controls"><input id="chatInput" maxlength="300" placeholder="PONG idag? 🍜" required><button id="chatSend" type="submit" class="secondary">Skicka</button></div></form><p id="chatFeedback" class="feedback" role="status"></p></section><section class="sponsor-demo" aria-label="Testannons för Il Ponte"><div class="sponsor-tag">ANNONS · DEMO</div><div class="sponsor-inner"><div class="sponsor-emblem" aria-hidden="true">🍕</div><div><div class="sponsor-name">IL PONTE</div><p>Just nu ingår valfri läsk!</p></div></div></section></aside>
-  <script type="module" src="app.js?v=20261102-30"></script>
+  <script type="module" src="app.js?v=20261102-31"></script>
 </body>
 </html>
