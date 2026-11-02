@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
+import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs, getDocsFromServer } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
@@ -282,6 +282,7 @@ async function main(){
     const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);
     // Firebase Anonymous används osynligt för att skilja enheter åt.
     onAuthStateChanged(auth,u=>{
+      if(u&&!u.isAnonymous){signOut(auth).catch(err=>showStatus('Kunde inte byta från tidigare inloggning: '+err.message,'error'));return;}
       unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awCountGeneration++;awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
 
       $('welcomeName').textContent=displayName;
