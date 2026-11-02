@@ -189,6 +189,11 @@ function updateCountdown(){
  if(closed)$('voteButton').textContent='🏆 DAGENS KAMP ÄR AVGJORD!';
  const undo=$('undoButton');if(undo)undo.disabled=!ready||closed||!hasVoted;
  $('lunchboxButton').disabled=!ready||closed||hasVoted;
+ if(closed && !awMode){
+  const counts=new Map();for(const v of votes){if(v.restaurantId!==LUNCHBOX_ID)counts.set(v.restaurantId,(counts.get(v.restaurantId)||0)+1)}
+  const max=Math.max(0,...counts.values()),leaders=places().filter(p=>max>0&&counts.get(p.id)===max);
+  renderTieWheel(leaders);
+ }else if($('tieDuel')){$('tieDuel').hidden=true;}
 }
 function dateLabel(d){return new Intl.DateTimeFormat('sv-SE',{timeZone:'UTC',day:'numeric',month:'short'}).format(d)}
 function plural(n){return `${n} ${n===1?'röst':'röster'}`}
@@ -217,7 +222,7 @@ function renderPlaces(){
 let lastTieKey='';
 function renderTieWheel(leaders){
  const panel=$('tieDuel'),wheel=$('tieWheel'),button=$('tieSpin'),out=$('tieOutcome');
- if(leaders.length!==2||awMode){panel.hidden=true;lastTieKey='';return}
+ if(leaders.length!==2||awMode||votingOpen()){panel.hidden=true;lastTieKey='';return}
  panel.hidden=false;
  const key=weekId+'-'+activeDay+'-'+leaders.map(r=>r.id).sort().join('|');
  if(lastTieKey!==key){
@@ -257,8 +262,10 @@ function renderResults(){
   $('totalVotes').textContent=plural(votes.length-lunchboxPeople.length);
   $('resultTitle').textContent='Ställningen – '+DAYS[activeDay];
   const list=$('resultList');list.replaceChildren();
-  for(let i=0;i<sorted.length;i++){
-    const r=sorted[i],row=document.createElement('div');row.className='result';row.dataset.restaurantId=r.id;
+  const visibleResults=sorted.filter(r=>r.count>0);
+  for(let i=0;i<visibleResults.length;i++){
+    const r=visibleResults[i],row=document.createElement('div');row.className='result';
+    if(r.count===max&&max>0)row.classList.add('leader');row.dataset.restaurantId=r.id;
     const voters=votes.filter(v=>v.restaurantId===r.id).map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).sort((a,b)=>a.localeCompare(b,'sv'));
     row.title=voters.length?'Röstat: '+voters.join(', '):'Inga röster ännu';row.tabIndex=0;row.setAttribute('aria-label',`${r.name}, ${plural(r.count)}. ${voters.length?'Röstat: '+voters.join(', '):'Inga röster ännu'}`);
     const head=document.createElement('div');head.className='result-head';
@@ -271,7 +278,7 @@ function renderResults(){
     for(const emoji of reactionEmojis){const btn=document.createElement('button');btn.type='button';btn.dataset.emoji=emoji;btn.textContent=emoji;btn.title='Reagera med '+emoji;btn.setAttribute('aria-label','Reagera på '+r.name+' med '+emoji);reactionButtons.append(btn)}
     reactionWrap.append(reactionButtons);row.append(reactionWrap);list.append(row)
   }
-  if(!sorted.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga restauranger tillagda.';list.append(p)}
+  if(!visibleResults.length){const p=document.createElement('p');p.className='empty';p.textContent='Inga röster ännu.';list.append(p)}
   renderReactionCounts();
   renderAdminVotes();
   const hasVoted=!!accountId&&votes.some(v=>v.accountId===accountId||(!v.accountId&&v.createdBy===user?.uid));
