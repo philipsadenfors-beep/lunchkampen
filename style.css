@@ -154,3 +154,8 @@ body.aw-mode #dayTabs .tab{cursor:pointer}
 /* Delad förstaplats: samma ledarfärg för alla restauranger med högsta röstetal. */
 .result.leader .fill{background:linear-gradient(90deg,#3b945d,#b3e851)!important}
 .result.leader .result-name,.result.leader .result-count{color:#175e3d;font-weight:800}
+
+/* Diskret, halvtransparent porträtt i sidans bakgrund. */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;background-image:url('lunchkampen-background.webp');background-repeat:no-repeat;background-position:center bottom;background-size:auto min(84vh,850px);opacity:.13;z-index:0}
+.shell{position:relative;z-index:1}
+@media(max-width:650px){body::before{background-size:auto 65vh;opacity:.09;background-position:center bottom}}
