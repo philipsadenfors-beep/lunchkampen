@@ -31,6 +31,18 @@ function loginDay(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Sto
 function savedLogin(){try{const value=JSON.parse(localStorage.getItem(LOGIN_KEY)||'null');return value?.day===loginDay()?value:null}catch{return null}}
 function applyName(name,id){displayName=name;accountId=id||'';$('voterName').value=name;$('awName').value=name;$('welcomeName').textContent=name}
 function gateError(msg){$('entryError').textContent=msg}
+$('logoutButton').addEventListener('click',()=>{
+ localStorage.removeItem(LOGIN_KEY);
+ sessionStorage.removeItem(ADMIN_SESSION);
+ $('adminUnlock').hidden=true;
+ $('adminPanel').hidden=true;
+ $('adminToggle').textContent='🔒 Admin';
+ $('loginPassword').value='';
+ $('accountSearch').value='';
+ $('accountOptions').hidden=true;
+ openRegistration(false);
+ showLogin();
+});
 function showLogin(){
  const saved=savedLogin(),found=saved&&accounts.find(x=>x.id===saved.id);
  if(found&&found.active!==false){applyName(found.name,found.id);$('nameGate').hidden=true;return}
