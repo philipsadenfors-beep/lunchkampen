@@ -142,3 +142,5 @@ body.aw-mode #dayTabs .tab{cursor:pointer}
 .swish-number button{border:0;background:#115b41;color:white;padding:9px 12px;border-radius:8px;font-weight:800;cursor:pointer}
 .swish-disclaimer{color:#7e5a3b;font-size:12px!important}
 @media(max-width:580px){.paid-actions{padding:17px}.paid-actions-grid{grid-template-columns:1fr}.paid-sparkle{display:none}}
+
+.name-gate-card select{width:100%;min-height:115px;padding:9px;border:1px solid #bed2be;border-radius:12px;background:#fff;font:inherit}.name-gate-card select option{padding:7px}.name-gate-card .gate-link{margin-top:10px;background:transparent;border:1px solid #b4d0ad;color:#134d36}.name-gate-card #registerArea[hidden],.name-gate-card #loginArea[hidden]{display:none}.admin-user-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-user-actions button{border:1px solid #c9d7bd;border-radius:8px;padding:8px 10px;cursor:pointer;background:#f1faed}.admin-user-actions .admin-delete{background:#fff0ec;color:#8d2727}
