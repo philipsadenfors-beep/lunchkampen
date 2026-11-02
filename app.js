@@ -162,29 +162,7 @@ function renderResults(){
   updateCountdown();
 }
 
-function renderAdminVotes(){
-  const panel=$('adminPanel'),list=$('adminVoteList');
-  panel.hidden=!isAdmin();
-  if(!isAdmin())return;
-  $('adminDayLabel').textContent=DAYS[activeDay]+' · '+$('weekLabel').textContent;
-  list.replaceChildren();
-  if(!votes.length){const p=document.createElement('p');p.className='small';p.textContent='Inga röster registrerade för vald dag.';list.append(p);return}
-  for(const vote of votes.slice().sort((x,y)=>(x.voterName||'').localeCompare(y.voterName||'','sv'))){
-    const entry=document.createElement('div');entry.className='admin-vote';
-    const info=document.createElement('span');
-    info.textContent=(vote.voterName||'Okänd')+' – '+(vote.restaurantId===LUNCHBOX_ID?'Matlåda (avstår)':(places().find(p=>p.id===vote.restaurantId)?.name||vote.restaurantId));
-    const remove=document.createElement('button');remove.type='button';remove.className='admin-delete';remove.textContent='Ta bort röst';
-    remove.addEventListener('click',async()=>{
-      if(!isAdmin()||!vote.id)return;
-      if(!confirm('Ta bort rösten från '+(vote.voterName||'Okänd')+' för '+DAYS[activeDay]+'?'))return;
-      remove.disabled=true;
-      try{await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',vote.id));showFeedback('adminFeedback','Rösten har tagits bort.')}
-      catch(err){showFeedback('adminFeedback','Kunde inte ta bort rösten: '+err.message,true);remove.disabled=false}
-    });
-    entry.append(info,remove);list.append(entry);
-  }
-}
-
+function renderAdminVotes(){} // Borttaget: namn ger ingen säker administratörsbehörighet.
 function myVoteDocId(){return user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
 function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
@@ -305,7 +283,7 @@ async function main(){
     // Firebase Anonymous används osynligt för att skilja enheter åt.
     onAuthStateChanged(auth,u=>{
       unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awCountGeneration++;awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
-      $('adminPanel').hidden=!isAdmin();
+
       $('welcomeName').textContent=displayName;
       showLogin();
       if(u){applyName(savedLogin()||displayName);
