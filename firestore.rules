@@ -10,6 +10,20 @@ service cloud.firestore {
     && request.resource.data.text is string && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 300
     && request.resource.data.createdAt == request.time;
   }
+  // Demo-konton: OBS lösenordshasharna är publikt läsbara; inte säker autentisering.
+  match /accounts/{accountId} {
+   allow read: if visitor();
+   allow create: if visitor()
+    && request.resource.data.keys().hasOnly(['name','salt','passwordHash','active','createdAt'])
+    && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 35
+    && request.resource.data.salt is string && request.resource.data.salt.size() >= 8
+    && request.resource.data.passwordHash is string && request.resource.data.passwordHash.size() == 64
+    && request.resource.data.active == true && request.resource.data.createdAt == request.time;
+   allow update: if visitor()
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passwordHash'])
+    && request.resource.data.passwordHash is string && request.resource.data.passwordHash.size() == 64;
+   allow delete: if visitor();
+  }
   match /restaurants/{restaurantId} {
    allow read: if visitor();
    allow create: if visitor() && request.resource.data.keys().hasOnly(['name','createdBy','createdAt'])
@@ -20,8 +34,9 @@ service cloud.firestore {
   }
   match /weeks/{weekId}/days/{dayId}/votes/{voterId} {
    allow read: if visitor();
-   allow create: if visitor() && validDay(weekId,dayId) && voterId == request.auth.uid
-    && request.resource.data.keys().hasOnly(['nameKey','voterName','restaurantId','createdBy','createdAt'])
+   allow create: if visitor() && validDay(weekId,dayId) && voterId == request.resource.data.accountId
+    && request.resource.data.keys().hasOnly(['nameKey','voterName','restaurantId','createdBy','createdAt','accountId'])
+    && request.resource.data.accountId is string && request.resource.data.accountId.size() >= 2
     && request.resource.data.createdBy == request.auth.uid
     && request.resource.data.voterName is string && request.resource.data.voterName.size() >= 2 && request.resource.data.voterName.size() <= 35
     && request.resource.data.nameKey is string && request.resource.data.nameKey.size() >= 2 && request.resource.data.nameKey.size() <= 120
