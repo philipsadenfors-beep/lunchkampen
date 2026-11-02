@@ -28,7 +28,7 @@ service cloud.firestore {
     && request.resource.data.restaurantId is string && request.resource.data.restaurantId.size() >= 1 && request.resource.data.restaurantId.size() <= 120
     && request.resource.data.createdAt == request.time;
    allow update: if false;
-   allow delete: if visitor() && voterId == request.auth.uid && resource.data.createdBy == request.auth.uid;
+   allow delete: if visitor(); // OBS: Demo-admin kräver öppna raderingsrättigheter. INTE SÄKERT.
   }
   match /weeks/{weekId}/days/{dayId}/reactions/{reactionId} {
    allow read: if visitor();
