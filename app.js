@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
-import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs, getDocsFromServer } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
+import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, serverTimestamp, query, orderBy, limit, getDocs, getDocsFromServer, runTransaction } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const ADMIN_PASS='Phille123';
@@ -219,26 +219,91 @@ function renderPlaces(){
   for(const r of mine){const item=document.createElement('div');item.className='own-entry';const name=document.createElement('span');name.textContent=r.name;const btn=document.createElement('button');btn.className='delete';btn.textContent='Ta bort';btn.type='button';btn.addEventListener('click',async()=>{if(!confirm(`Ta bort ${r.name} ur listan? Historiska röster finns kvar.`))return;try{await deleteDoc(doc(db,'restaurants',r.id));showFeedback('suggestFeedback',`${r.name} borttagen.`)}catch(e){showFeedback('suggestFeedback','Kunde inte ta bort: '+e.message,true)}});item.append(name,btn);own.append(item)}
   renderResults();
 }
-let lastTieKey='';
+let lastTieKey='', duelResult=null, unsubscribeDuel=()=>{}, duelGeneration=0, duelAnimating=false;
+
+function duelDocRef(week=weekId,day=activeDay){
+ return doc(db,'weeks',week,'days',String(day),'duel','result');
+}
+function watchDuelResult(){
+ unsubscribeDuel();duelResult=null;lastTieKey='';duelAnimating=false;
+ const version=++duelGeneration,watchedWeek=weekId,watchedDay=activeDay;
+ if(!user)return;
+ unsubscribeDuel=onSnapshot(duelDocRef(watchedWeek,watchedDay),snapshot=>{
+  if(version!==duelGeneration||watchedWeek!==weekId||watchedDay!==activeDay)return;
+  duelResult=snapshot.exists()?snapshot.data():null;
+  renderResults();
+ },err=>{
+  if(version!==duelGeneration)return;
+  const out=$('tieOutcome');
+  if(out)out.textContent='Kunde inte läsa duellresultatet: '+err.message;
+ });
+}
 function renderTieWheel(leaders){
  const panel=$('tieDuel'),wheel=$('tieWheel'),button=$('tieSpin'),out=$('tieOutcome');
- if(leaders.length!==2||awMode||votingOpen()){panel.hidden=true;lastTieKey='';return}
- panel.hidden=false;
- const key=weekId+'-'+activeDay+'-'+leaders.map(r=>r.id).sort().join('|');
- if(lastTieKey!==key){
-  lastTieKey=key;wheel.style.transition='none';wheel.style.transform='rotate(0deg)';
-  out.textContent='Två restauranger leder på samma antal röster. Snurra hjulet för att avgöra duellen!';
-  button.disabled=false;
+ if(!panel)return;
+ // En dag med sparad vinnare förblir avgjord, även om röster raderas senare.
+ const recorded=duelResult?.winnerId,ids=duelResult?.optionIds;
+ const options=recorded&&Array.isArray(ids)&&ids.length===2
+  ?ids.map(id=>places().find(p=>p.id===id)||{id,name:id})
+  :leaders;
+ if(awMode||votingOpen()||(!recorded&&options.length!==2)){
+  panel.hidden=true;lastTieKey='';return;
  }
- $('tieNameA').textContent=leaders[0].name;$('tieNameB').textContent=leaders[1].name;
+ panel.hidden=false;
+ const key=weekId+'-'+activeDay+'-'+options.map(p=>p.id).sort().join('|');
+ if(lastTieKey!==key){
+  lastTieKey=key;
+  wheel.style.transition='none';wheel.style.transform='rotate(0deg)';
+  duelAnimating=false;
+ }
+ $('tieNameA').textContent=options[0].name;
+ $('tieNameB').textContent=options[1].name;
  wheel.style.background='conic-gradient(#b7ef57 0deg 180deg,#cf4aac 180deg 360deg)';
- button.onclick=()=>{
-  if(button.disabled)return;button.disabled=true;
-  const choice=Math.floor(Math.random()*2),rotations=6*360+(choice===0?270:90);
-  wheel.style.transition='transform 3.8s cubic-bezier(.14,.75,.24,1)';
-  wheel.style.transform='rotate('+rotations+'deg)';
-  out.textContent='🎡 Duellen pågår...';
-  setTimeout(()=>{out.textContent='🏆 Hjulet valde '+leaders[choice].name+'!';button.disabled=false;wheel.style.transition='none';wheel.style.transform='rotate('+(rotations%360)+'deg)'},3900);
+ if(recorded){
+  $('tieDuelHeading').textContent='🏆 LUNCHDUELLEN ÄR AVGJORD!';
+  button.hidden=true;button.disabled=true;
+  if(!duelAnimating)out.textContent='🏆 '+(options.find(p=>p.id===recorded)?.name||recorded)+' vann duellen! Resultatet gäller för alla.';
+  return;
+ }
+ $('tieDuelHeading').textContent='⚔️ LUNCHDUELL – DET ÄR OAVGJORT!';
+ button.hidden=false;button.disabled=duelAnimating||!ready;
+ if(!duelAnimating)out.textContent='Två restauranger har lika många röster. Första snurret avgör vinnaren för alla.';
+ button.onclick=async()=>{
+  if(button.disabled||duelResult||votingOpen()||!user)return;
+  button.disabled=true;
+  const spinningWeek=weekId,spinningDay=activeDay,spinningKey=key;
+  const available=options.map(p=>p.id).sort();
+  const random=new Uint32Array(1);crypto.getRandomValues(random);
+  const selected=available[random[0]%2];
+  try{
+   // Transaktion: bara den första samtidiga snurrningen får skapa resultatet.
+   const winner=await runTransaction(db,async transaction=>{
+    const ref=duelDocRef(spinningWeek,spinningDay);
+    const snap=await transaction.get(ref);
+    if(snap.exists())return snap.data().winnerId;
+    transaction.set(ref,{winnerId:selected,optionIds:available,createdBy:user.uid,createdAt:serverTimestamp()});
+    return selected;
+   });
+   if(spinningWeek!==weekId||spinningDay!==activeDay||spinningKey!==lastTieKey)return;
+   duelAnimating=true;
+   const choice=options.findIndex(p=>p.id===winner);
+   const rotations=6*360+(choice===0?270:90);
+   wheel.style.transition='none';wheel.style.transform='rotate(0deg)';
+   // Force the initial wheel position to render before starting its rotation.
+   void wheel.offsetWidth;
+   wheel.style.transition='transform 3.8s cubic-bezier(.14,.75,.24,1)';
+   wheel.style.transform='rotate('+rotations+'deg)';
+   out.textContent='🎡 Duellen avgörs för alla...';
+   setTimeout(()=>{
+    if(spinningWeek!==weekId||spinningDay!==activeDay||spinningKey!==lastTieKey)return;
+    duelAnimating=false;
+    wheel.style.transition='none';wheel.style.transform='rotate('+(rotations%360)+'deg)';
+    renderResults();
+   },3900);
+  }catch(err){
+   duelAnimating=false;button.disabled=false;
+   out.textContent='Kunde inte spara vinnaren: '+err.message+'. Kontrollera Firebase-reglerna.';
+  }
  };
 }
 function renderResults(){
@@ -248,9 +313,10 @@ function renderResults(){
   const max=sorted[0]?.count||0;
   const leaders=sorted.filter(r=>r.count===max&&max>0);
   renderTieWheel(leaders);
-  $('winnerName').textContent=leaders.length?leaders.map(r=>r.name).join(' / '):'Inga röster ännu';
+  const decidedWinner=duelResult?.winnerId&&places().find(p=>p.id===duelResult.winnerId);
+  $('winnerName').textContent=decidedWinner?.name||(leaders.length?leaders.map(r=>r.name).join(' / '):'Inga röster ännu');
   $('winnerVotes').textContent=plural(max);
-  $('winnerNote').textContent=leaders.length>1?'Delad förstaplats!':max?'Flest röster just nu.':'Bli först med att välja lunchställe.';
+  $('winnerNote').textContent=decidedWinner?'🏆 Vann dagens utslagsduell!':leaders.length>1?'Delad förstaplats!':max?'Flest röster just nu.':'Bli först med att välja lunchställe.';
   const participants=votes.filter(v=>v.restaurantId!==LUNCHBOX_ID).map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).filter(Boolean).sort((x,y)=>x.localeCompare(y,'sv'));
   const lunchboxPeople=votes.filter(v=>v.restaurantId===LUNCHBOX_ID).map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).filter(Boolean).sort((x,y)=>x.localeCompare(y,'sv'));
   $('participantsTitle').textContent='Vilka ska med på '+DAYS[activeDay].toLowerCase()+'?';
@@ -334,7 +400,7 @@ $('adminCancel').addEventListener('click',()=>{$('adminUnlock').hidden=true});
 
 function myVoteDocId(){return accountId||user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
-function watchVotes(){unsubscribeVotes();votes=[];renderResults();if(!user)return;
+function watchVotes(){unsubscribeVotes();watchDuelResult();votes=[];renderResults();if(!user)return;
   const path=collection(db,'weeks',weekId,'days',String(activeDay),'votes');
   unsubscribeVotes=onSnapshot(path,s=>{votes=s.docs.map(d=>({id:d.id,...d.data()}));renderResults();maybeCelebrate()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
 }
@@ -452,7 +518,7 @@ async function main(){
     // Firebase Anonymous används osynligt för att skilja enheter åt.
     onAuthStateChanged(auth,u=>{
       if(u&&!u.isAnonymous){signOut(auth).catch(err=>showStatus('Kunde inte byta från tidigare inloggning: '+err.message,'error'));return;}
-      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awCountGeneration++;awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
+      unsubscribeVotes();unsubscribePlaces();unsubscribeChat();unsubscribeReactions();unsubscribeDuel();duelResult=null;duelGeneration++;awCountUnsubs.forEach(fn=>fn());awCountUnsubs=[];awCountGeneration++;awUnsubAttendees();awUnsubChat();votes=[];suggestions=[];user=u;ready=!!u;
 
       $('welcomeName').textContent=displayName;
       showLogin();
