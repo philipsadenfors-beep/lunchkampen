@@ -159,3 +159,6 @@ body.aw-mode #dayTabs .tab{cursor:pointer}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;background-image:url('lunchkampen-background.webp');background-repeat:no-repeat;background-position:center bottom;background-size:auto min(84vh,850px);opacity:.13;z-index:0}
 .shell{position:relative;z-index:1}
 @media(max-width:650px){body::before{background-size:auto 65vh;opacity:.09;background-position:center bottom}}
+
+/* Vinnaren i den gemensamma lunchduellen visas permanent; hjulet kan inte snurras igen. */
+.tie-duel #tieSpin[hidden]{display:none!important}
