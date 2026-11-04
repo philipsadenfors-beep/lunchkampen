@@ -45,6 +45,21 @@ service cloud.firestore {
    allow update: if false;
    allow delete: if visitor(); // OBS: Demo-admin kräver öppna raderingsrättigheter. INTE SÄKERT.
   }
+  // Gemensam lunchduell. Resultatet kan bara skapas en gång, aldrig ändras eller tas bort.
+  match /weeks/{weekId}/days/{dayId}/duel/{resultId} {
+   allow read: if visitor();
+   allow create: if visitor() && validDay(weekId,dayId) && resultId == 'result'
+    && request.resource.data.keys().hasOnly(['winnerId','optionIds','createdBy','createdAt'])
+    && request.resource.data.createdBy == request.auth.uid
+    && request.resource.data.optionIds is list
+    && request.resource.data.optionIds.size() == 2
+    && request.resource.data.optionIds[0] is string
+    && request.resource.data.optionIds[1] is string
+    && request.resource.data.optionIds[0] != request.resource.data.optionIds[1]
+    && request.resource.data.winnerId in request.resource.data.optionIds
+    && request.resource.data.createdAt == request.time;
+   allow update, delete: if false;
+  }
   match /weeks/{weekId}/days/{dayId}/reactions/{reactionId} {
    allow read: if visitor();
    allow create: if visitor() && validDay(weekId,dayId)
