@@ -166,7 +166,7 @@ function voteDeadline(){
   const current=selectedWeek();
   // Selected day belongs to the displayed workweek in Stockholm.
   const target=new Date(current.monday);target.setUTCDate(target.getUTCDate()+activeDay);
-  const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),11,activeDay===4?25:55));
+  const probe=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth(),target.getUTCDate(),activeDay===4?11:10,activeDay===4?25:55));
   const tz=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Stockholm',timeZoneName:'shortOffset'}).formatToParts(probe).find(x=>x.type==='timeZoneName')?.value||'GMT+1';
   const m=tz.match(/GMT([+-])([0-9]{1,2})(?::([0-9]{2}))?/);
   const offset=m?(m[1]==='+'?1:-1)*(Number(m[2])*60+Number(m[3]||0)):60;
