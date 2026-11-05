@@ -602,11 +602,16 @@ async function refreshLeague(){
   snapshots.forEach((snap,i)=>snap.forEach(d=>{
    const v=d.data();if(v.restaurantId===LUNCHBOX_ID)return;
    if(!v.createdAt?.toMillis||v.createdAt.toMillis()<Date.parse('2026-11-02T21:29:00Z'))return;
-   const key=v.createdBy||v.nameKey;if(!key)return;
-   const display=v.voterName||decodeURIComponent(v.nameKey||'Okänd');
+   // Firebase-UID kan skilja sig mellan enheter. Gruppera på registrerat
+   // användarnamn (accountId), med normaliserat namn för äldre röster.
+   const display=(v.voterName||'').trim()||(v.nameKey?decodeURIComponent(v.nameKey):'Okänd');
+   const normalizedName=makeNameKey(display);
+   const key=(v.accountId||normalizedName||v.nameKey||'').toLocaleLowerCase('sv-SE');
+   if(!key)return;
    const current=scores.get(key)||{name:display,score:0};
    current.score++;current.name=display;scores.set(key,current);
-   if(v.createdBy===user.uid)myDates.add(days[i].date);
+   if((accountId&&key===accountId.toLocaleLowerCase('sv-SE'))||
+      (!accountId&&normalizedName===makeNameKey(displayName)))myDates.add(days[i].date);
   }));
   const ranked=[...scores.values()].sort((x,y)=>y.score-x.score||x.name.localeCompare(y.name,'sv')).slice(0,10);
   const list=$('leagueList');list.replaceChildren();
