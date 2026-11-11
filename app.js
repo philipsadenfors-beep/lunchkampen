@@ -37,6 +37,7 @@ $('logoutButton').addEventListener('click',()=>{
  $('adminUnlock').hidden=true;
  $('adminPanel').hidden=true;
  $('adminToggle').textContent='🔒 Admin';
+ renderResults();
  $('loginPassword').value='';
  $('accountSearch').value='';
  $('accountOptions').hidden=true;
@@ -219,90 +220,101 @@ function renderPlaces(){
   for(const r of mine){const item=document.createElement('div');item.className='own-entry';const name=document.createElement('span');name.textContent=r.name;const btn=document.createElement('button');btn.className='delete';btn.textContent='Ta bort';btn.type='button';btn.addEventListener('click',async()=>{if(!confirm(`Ta bort ${r.name} ur listan? Historiska röster finns kvar.`))return;try{await deleteDoc(doc(db,'restaurants',r.id));showFeedback('suggestFeedback',`${r.name} borttagen.`)}catch(e){showFeedback('suggestFeedback','Kunde inte ta bort: '+e.message,true)}});item.append(name,btn);own.append(item)}
   renderResults();
 }
-let lastTieKey='', duelResult=null, unsubscribeDuel=()=>{}, duelGeneration=0, duelAnimating=false;
+let lastTieKey='',duelResult=null,unsubscribeDuel=()=>{},duelGeneration=0,duelAnimating=false,duelSaving=false,duelError='';
 
 function duelDocRef(week=weekId,day=activeDay){
  return doc(db,'weeks',week,'days',String(day),'duel','result');
 }
 function watchDuelResult(){
- unsubscribeDuel();duelResult=null;lastTieKey='';duelAnimating=false;
+ unsubscribeDuel();duelResult=null;lastTieKey='';duelAnimating=false;duelSaving=false;duelError='';
  const version=++duelGeneration,watchedWeek=weekId,watchedDay=activeDay;
  if(!user)return;
  unsubscribeDuel=onSnapshot(duelDocRef(watchedWeek,watchedDay),snapshot=>{
   if(version!==duelGeneration||watchedWeek!==weekId||watchedDay!==activeDay)return;
   duelResult=snapshot.exists()?snapshot.data():null;
+  duelError='';
   renderResults();
  },err=>{
   if(version!==duelGeneration)return;
-  const out=$('tieOutcome');
-  if(out)out.textContent='Kunde inte läsa duellresultatet: '+err.message;
+  duelError='Kunde inte läsa duellresultatet: '+err.message+'. Kontrollera Firestore-reglerna.';
+  renderResults();
  });
 }
 function renderTieWheel(leaders){
- const panel=$('tieDuel'),wheel=$('tieWheel'),button=$('tieSpin'),out=$('tieOutcome');
- if(!panel)return;
- // En dag med sparad vinnare förblir avgjord, även om röster raderas senare.
- const recorded=duelResult?.winnerId,ids=duelResult?.optionIds;
- const options=recorded&&Array.isArray(ids)&&ids.length===2
-  ?ids.map(id=>places().find(p=>p.id===id)||{id,name:id})
-  :leaders;
- if(awMode||votingOpen()||(!recorded&&options.length!==2)){
+ const panel=$('tieDuel'),wheel=$('tieWheel'),button=$('tieSpin'),out=$('tieOutcome'),names=$('tieOptions');
+ if(!panel||!wheel||!button||!out||!names)return;
+ const winnerId=duelResult?.winnerId;
+ const ids=Array.isArray(duelResult?.optionIds)?duelResult.optionIds:[];
+ const savedOptions=winnerId&&(ids.length===2||ids.length===3);
+ const options=savedOptions?ids.map(id=>places().find(p=>p.id===id)||{id,name:id}):leaders;
+ if(awMode||votingOpen()||(!savedOptions&&(options.length!==2&&options.length!==3))){
   panel.hidden=true;lastTieKey='';return;
  }
  panel.hidden=false;
  const key=weekId+'-'+activeDay+'-'+options.map(p=>p.id).sort().join('|');
  if(lastTieKey!==key){
-  lastTieKey=key;
-  wheel.style.transition='none';wheel.style.transform='rotate(0deg)';
-  duelAnimating=false;
+  lastTieKey=key;wheel.style.transition='none';wheel.style.transform='rotate(0deg)';
+  duelAnimating=false;duelSaving=false;
  }
- $('tieNameA').textContent=options[0].name;
- $('tieNameB').textContent=options[1].name;
- wheel.style.background='conic-gradient(#b7ef57 0deg 180deg,#cf4aac 180deg 360deg)';
- if(recorded){
+ names.replaceChildren();
+ options.forEach((place,i)=>{
+  const name=document.createElement('strong');name.textContent=place.name;name.className='tie-contender';
+  names.append(name);
+  if(i<options.length-1){const versus=document.createElement('span');versus.textContent='VS';names.append(versus)}
+ });
+ $('tieDuelIntro').textContent=options.length+' restauranger har lika många röster.';
+ const segment=360/options.length;
+ const colors=['#b7ef57','#cf4aac','#f7c74d'];
+ const stops=options.map((_,i)=>colors[i]+' '+(i*segment)+'deg '+((i+1)*segment)+'deg').join(',');
+ wheel.style.background='conic-gradient('+stops+')';
+ const admin=isAdmin();
+ if(savedOptions){
   $('tieDuelHeading').textContent='🏆 LUNCHDUELLEN ÄR AVGJORD!';
   button.hidden=true;button.disabled=true;
-  if(!duelAnimating)out.textContent='🏆 '+(options.find(p=>p.id===recorded)?.name||recorded)+' vann duellen! Resultatet gäller för alla.';
-  return;
+  if(!duelAnimating)out.textContent='🏆 '+(options.find(p=>p.id===winnerId)?.name||winnerId)+' vann duellen! Resultatet gäller för alla.';
+ }else{
+  $('tieDuelHeading').textContent='⚔️ LUNCHDUELL – DET ÄR OAVGJORT!';
+  button.hidden=!admin;button.disabled=!ready||duelSaving||duelAnimating||!!duelError;
+  if(duelError)out.textContent=duelError;
+  else if(duelSaving)out.textContent='Sparar det gemensamma resultatet i Firebase...';
+  else if(!duelAnimating)out.textContent=admin?'Du som admin kan snurra en gång. Resultatet sparas för alla.':'🔒 Endast admin kan snurra hjulet och utse dagens vinnare.';
  }
- $('tieDuelHeading').textContent='⚔️ LUNCHDUELL – DET ÄR OAVGJORT!';
- button.hidden=false;button.disabled=duelAnimating||!ready;
- if(!duelAnimating)out.textContent='Två restauranger har lika många röster. Första snurret avgör vinnaren för alla.';
  button.onclick=async()=>{
-  if(button.disabled||duelResult||votingOpen()||!user)return;
-  button.disabled=true;
-  const spinningWeek=weekId,spinningDay=activeDay,spinningKey=key;
-  const available=options.map(p=>p.id).sort();
+  if(!isAdmin()||!ready||!user||button.disabled||duelResult||votingOpen()||duelSaving)return;
+  const spinningWeek=weekId,spinningDay=activeDay,spinningKey=key,spinningVersion=duelGeneration;
+  const available=options.map(p=>p.id);
+  // Kryptografisk slump i webbläsaren, 2 eller 3 lika sannolika restauranger.
   const random=new Uint32Array(1);crypto.getRandomValues(random);
-  const selected=available[random[0]%2];
+  const selected=available[random[0]%available.length];
+  duelSaving=true;button.disabled=true;out.textContent='Sparar det gemensamma resultatet i Firebase...';
   try{
-   // Transaktion: bara den första samtidiga snurrningen får skapa resultatet.
    const winner=await runTransaction(db,async transaction=>{
-    const ref=duelDocRef(spinningWeek,spinningDay);
-    const snap=await transaction.get(ref);
+    const ref=duelDocRef(spinningWeek,spinningDay),snap=await transaction.get(ref);
     if(snap.exists())return snap.data().winnerId;
     transaction.set(ref,{winnerId:selected,optionIds:available,createdBy:user.uid,createdAt:serverTimestamp()});
     return selected;
    });
-   if(spinningWeek!==weekId||spinningDay!==activeDay||spinningKey!==lastTieKey)return;
-   duelAnimating=true;
+   if(spinningVersion!==duelGeneration||spinningWeek!==weekId||spinningDay!==activeDay||spinningKey!==lastTieKey)return;
+   duelSaving=false;duelAnimating=true;
    const choice=options.findIndex(p=>p.id===winner);
-   const rotations=6*360+(choice===0?270:90);
+   const angle=(360-(choice+0.5)*(360/options.length)+360)%360;
+   const rotation=360*6+angle;
    wheel.style.transition='none';wheel.style.transform='rotate(0deg)';
-   // Force the initial wheel position to render before starting its rotation.
    void wheel.offsetWidth;
    wheel.style.transition='transform 3.8s cubic-bezier(.14,.75,.24,1)';
-   wheel.style.transform='rotate('+rotations+'deg)';
-   out.textContent='🎡 Duellen avgörs för alla...';
+   wheel.style.transform='rotate('+rotation+'deg)';
+   out.textContent='🎡 Hjulet snurrar – vinnaren sparad för alla!';
    setTimeout(()=>{
-    if(spinningWeek!==weekId||spinningDay!==activeDay||spinningKey!==lastTieKey)return;
-    duelAnimating=false;
-    wheel.style.transition='none';wheel.style.transform='rotate('+(rotations%360)+'deg)';
+    if(spinningVersion!==duelGeneration||spinningWeek!==weekId||spinningDay!==activeDay)return;
+    duelAnimating=false;wheel.style.transition='none';
+    wheel.style.transform='rotate('+(rotation%360)+'deg)';
     renderResults();
    },3900);
   }catch(err){
-   duelAnimating=false;button.disabled=false;
-   out.textContent='Kunde inte spara vinnaren: '+err.message+'. Kontrollera Firebase-reglerna.';
+   if(spinningVersion!==duelGeneration)return;
+   duelSaving=false;duelAnimating=false;
+   duelError='Det gick inte att spara vinnaren: '+err.message+'. Publicera de uppdaterade Firebase-reglerna.';
+   renderResults();
   }
  };
 }
@@ -387,14 +399,14 @@ function renderAdminVotes(){
  }
 }
 $('adminToggle').addEventListener('click',()=>{
- if(isAdmin()){sessionStorage.removeItem(ADMIN_SESSION);$('adminPanel').hidden=true;$('adminToggle').textContent='🔒 Admin';return}
+ if(isAdmin()){sessionStorage.removeItem(ADMIN_SESSION);$('adminPanel').hidden=true;$('adminToggle').textContent='🔒 Admin';renderResults();return}
  $('adminUnlock').hidden=false;$('adminPassword').value='';$('adminPassword').focus();
 });
 $('adminLoginForm').addEventListener('submit',event=>{
  event.preventDefault();
  if($('adminPassword').value!==ADMIN_PASS){$('adminLoginFeedback').textContent='Fel lösenord.';return}
  sessionStorage.setItem(ADMIN_SESSION,'1');$('adminUnlock').hidden=true;$('adminToggle').textContent='🔓 Avsluta admin';
- renderAdminVotes();renderAccountAdmin();$('adminPanel').scrollIntoView({behavior:'smooth'});
+ renderAdminVotes();renderAccountAdmin();renderResults();$('adminPanel').scrollIntoView({behavior:'smooth'});
 });
 $('adminCancel').addEventListener('click',()=>{$('adminUnlock').hidden=true});
 
