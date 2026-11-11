@@ -162,3 +162,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;background-im
 
 /* Vinnaren i den gemensamma lunchduellen visas permanent; hjulet kan inte snurras igen. */
 .tie-duel #tieSpin[hidden]{display:none!important}
+
+/* Två eller tre deltagare i den gemensamma lunchduellen. */
+.tie-options{gap:10px 16px}
+.tie-options .tie-contender{max-width:180px;overflow-wrap:anywhere}
+.tie-duel #tieSpin[hidden]{display:none!important}
