@@ -337,7 +337,7 @@ function renderResults(){
   if(!participants.length){const empty=document.createElement('p');empty.className='participants-empty';empty.textContent='Ingen har röstat den här dagen ännu.';participantList.append(empty)}
   else for(const person of participants){const tag=document.createElement('span');tag.className='participant-tag';tag.textContent=person;participantList.append(tag)}
   if(lunchboxPeople.length){const box=document.createElement('div');box.className='lunchbox-people';box.textContent='🥪 Matlåda (avstår): '+lunchboxPeople.join(', ');participantList.append(box)}
-  $('totalVotes').textContent=plural(votes.length-lunchboxPeople.length);
+  $('totalVotes').textContent=plural(votes.filter(v=>v.restaurantId!==LUNCHBOX_ID).reduce((sum,v)=>sum+1+(boosts.some(b=>b.id===v.id)?1:0),0));
   $('resultTitle').textContent='Ställningen – '+DAYS[activeDay];
   const list=$('resultList');list.replaceChildren();
   const visibleResults=sorted.filter(r=>r.count>0);
