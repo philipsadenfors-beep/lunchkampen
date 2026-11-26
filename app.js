@@ -23,7 +23,7 @@ const DEFAULT_PLACES = [
   {id:'start-piren',name:'Piren'}
 ];
 const $ = id => document.getElementById(id);
-let auth,db,user=null,weekId='',selectedWeekOffset=0,baseWeekId='',activeDay=0,votes=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},unsubscribeReactions=()=>{},reactions=[],ready=false;
+let auth,db,user=null,weekId='',selectedWeekOffset=0,baseWeekId='',activeDay=0,votes=[],boosts=[],suggestions=[],unsubscribeVotes=()=>{},unsubscribeBoosts=()=>{},unsubscribePlaces=()=>{},unsubscribeChat=()=>{},unsubscribeReactions=()=>{},reactions=[],ready=false;
 const LOGIN_KEY='lunchkampen-account-session';
 let displayName='',accountId='',accounts=[],unsubscribeAccounts=()=>{};
 const normalName=n=>n.trim().replace(/\s+/g,' ');
@@ -320,7 +320,7 @@ function renderTieWheel(leaders){
 }
 function renderResults(){
   const ballot=places(),counts=new Map(ballot.map(r=>[r.id,0]));
-  for(const v of votes)counts.set(v.restaurantId,(counts.get(v.restaurantId)||0)+1);
+  for(const v of votes){if(v.restaurantId!==LUNCHBOX_ID)counts.set(v.restaurantId,(counts.get(v.restaurantId)||0)+1+(boosts.some(b=>b.id===v.id)?1:0));}
   const sorted=ballot.map(r=>({...r,count:counts.get(r.id)||0})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'sv'));
   const max=sorted[0]?.count||0;
   const leaders=sorted.filter(r=>r.count===max&&max>0);
@@ -344,7 +344,7 @@ function renderResults(){
   for(let i=0;i<visibleResults.length;i++){
     const r=visibleResults[i],row=document.createElement('div');row.className='result';
     if(r.count===max&&max>0)row.classList.add('leader');row.dataset.restaurantId=r.id;
-    const voters=votes.filter(v=>v.restaurantId===r.id).map(v=>v.voterName||decodeURIComponent(v.nameKey||'')).sort((a,b)=>a.localeCompare(b,'sv'));
+    const voters=votes.filter(v=>v.restaurantId===r.id).map(v=>(v.voterName||decodeURIComponent(v.nameKey||''))+(boosts.some(b=>b.id===v.id)?' 🚀 BOOSTAD':'' )).sort((a,b)=>a.localeCompare(b,'sv'));
     row.title=voters.length?'Röstat: '+voters.join(', '):'Inga röster ännu';row.tabIndex=0;row.setAttribute('aria-label',`${r.name}, ${plural(r.count)}. ${voters.length?'Röstat: '+voters.join(', '):'Inga röster ännu'}`);
     const head=document.createElement('div');head.className='result-head';
     const name=document.createElement('span');name.className='result-name';name.textContent=`${i+1}. ${r.name}${r.count===max&&max>0?' 🏆':''}`;
@@ -387,15 +387,37 @@ function renderAdminVotes(){
  for(const vote of votes.slice().sort((x,y)=>(x.voterName||'').localeCompare(y.voterName||'','sv'))){
   const item=document.createElement('div');item.className='admin-vote';
   const name=document.createElement('span');
-  name.textContent=(vote.voterName||'Okänd')+' — '+(vote.restaurantId===LUNCHBOX_ID?'Matlåda':places().find(p=>p.id===vote.restaurantId)?.name||vote.restaurantId);
+  const boosted=boosts.some(b=>b.id===vote.id);
+  const place=vote.restaurantId===LUNCHBOX_ID?'Matlåda':places().find(p=>p.id===vote.restaurantId)?.name||vote.restaurantId;
+  name.textContent=(vote.voterName||'Okänd')+' — '+place+(boosted?' · 🚀 BOOSTAD (2 röster)':'');
+  const actions=document.createElement('div');actions.className='admin-vote-actions';
+  if(vote.restaurantId!==LUNCHBOX_ID){
+   const boostButton=document.createElement('button');boostButton.type='button';boostButton.className='admin-boost';boostButton.textContent=boosted?'🚀 Boost aktiverad':'🚀 Aktivera boost';
+   boostButton.disabled=boosted;
+   boostButton.addEventListener('click',async()=>{
+    if(!isAdmin()||boosted||!confirm('Aktivera boost för '+(vote.voterName||'denna användare')+'? Rösten blir värd 2 röster.'))return;
+    boostButton.disabled=true;
+    try{
+     await setDoc(doc(db,'weeks',weekId,'days',String(activeDay),'boosts',vote.id),{
+      voteId:vote.id,voterName:vote.voterName||'Okänd',restaurantId:vote.restaurantId,
+      createdBy:user.uid,createdAt:serverTimestamp()
+     });
+     showFeedback('adminFeedback','Boost aktiverad! Rösten räknas nu som 2.');
+    }catch(err){showFeedback('adminFeedback','Kunde inte aktivera boost: '+err.message,true);boostButton.disabled=false}
+   });
+   actions.append(boostButton);
+  }
   const button=document.createElement('button');button.type='button';button.className='admin-delete';button.textContent='Ta bort röst';
   button.addEventListener('click',async()=>{
    if(!isAdmin()||!confirm('Ta bort rösten från '+(vote.voterName||'Okänd')+'?'))return;
    button.disabled=true;
-   try{await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',vote.id));showFeedback('adminFeedback','Rösten borttagen.')}
-   catch(err){showFeedback('adminFeedback','Kunde inte ta bort rösten: '+err.message,true);button.disabled=false}
+   try{
+    if(boosted)await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'boosts',vote.id));
+    await deleteDoc(doc(db,'weeks',weekId,'days',String(activeDay),'votes',vote.id));
+    showFeedback('adminFeedback','Rösten borttagen.');
+   }catch(err){showFeedback('adminFeedback','Kunde inte ta bort rösten: '+err.message,true);button.disabled=false}
   });
-  item.append(name,button);list.append(item);
+  actions.append(button);item.append(name,actions);list.append(item);
  }
 }
 $('adminToggle').addEventListener('click',()=>{
@@ -412,9 +434,10 @@ $('adminCancel').addEventListener('click',()=>{$('adminUnlock').hidden=true});
 
 function myVoteDocId(){return accountId||user?.uid||''}
 function makeNameKey(s){return encodeURIComponent(s.trim().replace(/\s+/g,' ').toLocaleLowerCase('sv-SE'))}
-function watchVotes(){unsubscribeVotes();watchDuelResult();votes=[];renderResults();if(!user)return;
-  const path=collection(db,'weeks',weekId,'days',String(activeDay),'votes');
-  unsubscribeVotes=onSnapshot(path,s=>{votes=s.docs.map(d=>({id:d.id,...d.data()}));renderResults();maybeCelebrate()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
+function watchVotes(){unsubscribeVotes();unsubscribeBoosts();watchDuelResult();votes=[];boosts=[];renderResults();if(!user)return;
+  const dayPath=['weeks',weekId,'days',String(activeDay)];
+  unsubscribeVotes=onSnapshot(collection(db,...dayPath,'votes'),s=>{votes=s.docs.map(d=>({id:d.id,...d.data()}));renderResults();maybeCelebrate()},e=>showStatus('Kunde inte läsa röster: '+e.message,'error'));
+  unsubscribeBoosts=onSnapshot(collection(db,...dayPath,'boosts'),s=>{boosts=s.docs.map(d=>({id:d.id,...d.data()}));renderResults()},e=>showStatus('Kunde inte läsa boostar: '+e.message,'error'));
 }
 function watchChat(){
   unsubscribeChat();const list=$('chatMessages');list.replaceChildren();
